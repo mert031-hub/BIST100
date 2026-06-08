@@ -44,6 +44,7 @@ export default function NewsPanel() {
   const [items, setItems] = useState<NewsItem[]>([]);
   const [source, setSource] = useState<DataSource>('mock');
   const [okCount, setOkCount] = useState(0);
+  const [feedStatus, setFeedStatus] = useState<{ source: string; status: 'ok' | 'error'; count: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const { selectedSources, addSource, removeSource, newsFilter, setNewsFilter } = useDashboardStore();
 
@@ -55,6 +56,7 @@ export default function NewsPanel() {
         setItems(d.items ?? []);
         setSource(d.source ?? 'mock');
         setOkCount(d.okCount ?? 0);
+        setFeedStatus(d.feedStatus ?? []);
       } catch { /* silent — keep previous state */ }
       finally { setLoading(false); }
     }
@@ -94,6 +96,16 @@ export default function NewsPanel() {
           value={newsFilter}
           onChange={(e) => setNewsFilter(e.target.value)}
         />
+        {feedStatus.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 8px', marginTop: 4 }}>
+            {feedStatus.map((f) => (
+              <span key={f.source} style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 8, color: f.status === 'ok' ? 'var(--green)' : 'var(--text-faint)' }}>
+                <span style={{ width: 4, height: 4, borderRadius: '50%', background: f.status === 'ok' ? 'var(--green)' : 'var(--text-faint)', display: 'inline-block', flexShrink: 0 }} />
+                {f.source}{f.status === 'ok' ? ` (${f.count})` : ''}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       <div style={{ overflowY: 'auto', flex: 1 }}>

@@ -84,13 +84,22 @@ async function parseFeed(
   }
 }
 
-function deduplicateByTitle(items: NewsItem[]): NewsItem[] {
-  const seen = new Set<string>();
+/**
+ * Deduplicate news items by:
+ *  1. Normalised title prefix (first 80 chars, lowercase, collapsed whitespace)
+ *  2. Exact source URL
+ * Items from feeds with higher importance scores win when titles collide.
+ */
+function deduplicate(items: NewsItem[]): NewsItem[] {
+  const seenTitles = new Set<string>();
+  const seenUrls   = new Set<string>();
   return items.filter((item) => {
-    // normalise title for comparison
-    const key = item.title.toLowerCase().replace(/\s+/g, ' ').trim().slice(0, 60);
-    if (seen.has(key)) return false;
-    seen.add(key);
+    const titleKey = item.title.toLowerCase().replace(/\s+/g, ' ').trim().slice(0, 80);
+    const urlKey   = item.sourceUrl.trim();
+    if (seenTitles.has(titleKey)) return false;
+    if (urlKey && seenUrls.has(urlKey))  return false;
+    seenTitles.add(titleKey);
+    if (urlKey) seenUrls.add(urlKey);
     return true;
   });
 }
@@ -123,7 +132,7 @@ export async function GET() {
       });
     }
 
-    const sorted = deduplicateByTitle(allItems)
+    const sorted = deduplicate(allItems)
       .sort((a, b) => b.importanceScore - a.importanceScore)
       .slice(0, 40);
 

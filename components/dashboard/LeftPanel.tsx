@@ -2,6 +2,7 @@
 
 import StockPanel from './StockPanel';
 import TcmbPanel from './TcmbPanel';
+import SourceHealthBar from './SourceHealthBar';
 
 export default function LeftPanel() {
   return (
@@ -10,6 +11,7 @@ export default function LeftPanel() {
       <div style={{ flex: 1, minHeight: 0, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>
         <TcmbPanel />
       </div>
+      <SourceHealthBar />
     </div>
   );
 }
