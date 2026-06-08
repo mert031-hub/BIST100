@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useDashboardStore } from '@/store/dashboard-store';
 import { ContentPlatform, ContentSource } from '@/types/content';
 
+type ExportState = 'idle' | 'exporting' | 'error';
+
 /* ─── Platform config ───────────────────────────────────────────────────── */
 type PlatformCfg = { id: ContentPlatform; label: string; icon: string; desc: string };
 
@@ -35,7 +37,7 @@ function srcLabel(type: ContentSource['type']) {
 
 /* ─── Instagram 1080×1350 preview card ────────────────────────────────── */
 function InstagramPreview({
-  title, bullets, companyCodes, sourceCount, disclaimer, platform, createdAt,
+  title, bullets, companyCodes, sourceCount, disclaimer, platform, createdAt, cardRef,
 }: {
   title: string;
   bullets: string[];
@@ -44,6 +46,7 @@ function InstagramPreview({
   disclaimer: string;
   platform: ContentPlatform;
   createdAt: string;
+  cardRef?: React.RefObject<HTMLDivElement | null>;
 }) {
   const isStory = platform === 'INSTAGRAM_STORY';
   const dateStr = new Date(createdAt).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -51,7 +54,7 @@ function InstagramPreview({
 
   return (
     <div style={{ padding: '8px', display: 'flex', justifyContent: 'center', background: 'var(--bg-2)' }}>
-      <div style={{
+      <div ref={cardRef} style={{
         width: '100%',
         maxWidth: isStory ? 160 : '100%',
         aspectRatio: isStory ? '9/16' : '4/5',
@@ -169,7 +172,10 @@ export default function ContentStudio() {
   const [editedTitle, setEditedTitle] = useState('');
   const [editedBody, setEditedBody] = useState('');
   const [copied, setCopied] = useState(false);
+  const [exportState, setExportState] = useState<ExportState>('idle');
+  const [exportError, setExportError] = useState('');
   const prevContentRef = useRef<string | null>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!generatedContent) return;
@@ -189,6 +195,44 @@ export default function ContentStudio() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }).catch(() => {});
+  }
+
+  async function handleExport() {
+    if (!cardRef.current || !generatedContent) return;
+    setExportState('exporting');
+    setExportError('');
+    try {
+      const { toPng } = await import('html-to-image');
+      const isStory = generatedContent.platform === 'INSTAGRAM_STORY';
+      const pixelWidth = isStory ? 1080 : 1080;
+      const pixelHeight = isStory ? 1920 : 1350;
+      const node = cardRef.current;
+      const naturalWidth  = node.offsetWidth;
+      const naturalHeight = node.offsetHeight;
+      const scale = Math.max(pixelWidth / naturalWidth, pixelHeight / naturalHeight);
+      const dataUrl = await toPng(node, {
+        width:  pixelWidth,
+        height: pixelHeight,
+        style: {
+          transform: `scale(${scale})`,
+          transformOrigin: 'top left',
+          width:  `${naturalWidth}px`,
+          height: `${naturalHeight}px`,
+        },
+        pixelRatio: 1,
+      });
+      const date = new Date().toISOString().slice(0, 10);
+      const platform = generatedContent.platform.toLowerCase().replace('_', '-');
+      const filename = `bist-radar-${date}-${platform}.png`;
+      const link = document.createElement('a');
+      link.download = filename;
+      link.href = dataUrl;
+      link.click();
+      setExportState('idle');
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : String(err));
+      setExportState('error');
+    }
   }
 
   const isIg = IS_INSTAGRAM(activePlatform);
@@ -341,7 +385,7 @@ export default function ContentStudio() {
               />
             </div>
 
-            {/* IG visual preview */}
+            {/* IG visual preview + PNG export */}
             {isIg && (
               <div style={{ borderBottom: '1px solid var(--border)' }}>
                 <InstagramPreview
@@ -352,7 +396,32 @@ export default function ContentStudio() {
                   disclaimer={generatedContent.disclaimer}
                   platform={activePlatform}
                   createdAt={generatedContent.createdAt}
+                  cardRef={cardRef}
                 />
+                {/* PNG export row */}
+                <div style={{ padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <button
+                    className="btn-primary"
+                    style={{ fontSize: 9 }}
+                    disabled={exportState === 'exporting'}
+                    onClick={handleExport}
+                  >
+                    {exportState === 'exporting' ? '⧖ EXPORT...' : '⬇ PNG İNDİR'}
+                  </button>
+                  <span style={{ fontSize: 8, color: 'var(--text-faint)' }}>
+                    {generatedContent.platform === 'INSTAGRAM_STORY' ? '1080×1920' : '1080×1350'} px
+                  </span>
+                </div>
+                {exportState === 'error' && (
+                  <div style={{
+                    margin: '0 8px 6px', padding: '4px 6px',
+                    background: 'var(--bg-3)', border: '1px solid var(--red)',
+                    fontSize: 8, color: 'var(--red)', fontFamily: 'inherit',
+                    letterSpacing: 0.5, lineHeight: 1.5,
+                  }}>
+                    ERR: {exportError}
+                  </div>
+                )}
               </div>
             )}
 
