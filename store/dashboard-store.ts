@@ -15,7 +15,7 @@ interface DashboardStore {
   activePlatform: ContentPlatform;
   setActivePlatform: (platform: ContentPlatform) => void;
   generatedContent: GeneratedContent | null;
-  generateForPlatform: (companyCode?: string) => void;
+  generateForPlatform: () => void;
 
   // UI state
   activePanel: 'news' | 'kap' | 'brokers';
@@ -45,10 +45,10 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
   activePlatform: 'INSTAGRAM_POST',
   setActivePlatform: (platform) => set({ activePlatform: platform }),
   generatedContent: null,
-  generateForPlatform: (companyCode) => {
+  generateForPlatform: () => {
     const { selectedSources, activePlatform } = get();
     if (selectedSources.length === 0) return;
-    const content = generateContent(activePlatform, selectedSources, companyCode);
+    const content = generateContent(activePlatform, selectedSources);
     set({ generatedContent: content });
   },
 
