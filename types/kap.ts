@@ -5,6 +5,7 @@ export type KapCategory =
   | 'SERMAYE_ARTIRIMI'
   | 'GERI_ALIM'
   | 'IHALE'
+  | 'YEN_IS_ILISKISI'
   | 'YK_KARARI'
   | 'BORCLANMA'
   | 'DIGER';
@@ -14,11 +15,13 @@ export interface KapDisclosure {
   companyCode: string;
   companyName: string;
   title: string;
+  summary: string;
   category: KapCategory;
   date: string;
-  summary: string;
   sourceUrl: string;
   importanceScore: number;
+  /** Suitable for Content Studio (score ≥ 55 and category warrants analysis) */
+  contentReady: boolean;
 }
 
 export interface KapState {

@@ -14,13 +14,19 @@ const KAP_RSS_URL = 'https://www.kap.org.tr/tr/rss/bildirimler';
 const FEED_TIMEOUT = 8000;
 const MAX_ITEMS = 25;
 
+const CONTENT_READY_CATEGORIES = new Set<KapCategory>([
+  'FINANSAL_TABLO', 'IHALE', 'TEMETTU', 'SERMAYE_ARTIRIMI',
+  'GERI_ALIM', 'YEN_IS_ILISKISI', 'OZEL_DURUM', 'BORCLANMA',
+]);
+
 function classifyKap(title: string): KapCategory {
   const t = title.toLowerCase();
   if (t.includes('finansal tablo') || t.includes('bilanço') || t.includes('gelir tablosu')) return 'FINANSAL_TABLO';
   if (t.includes('temettü') || t.includes('kâr dağıtım') || t.includes('kar dagitim')) return 'TEMETTU';
   if (t.includes('sermaye artırım') || t.includes('bedelli') || t.includes('bedelsiz')) return 'SERMAYE_ARTIRIMI';
   if (t.includes('geri alım') || t.includes('geri satin')) return 'GERI_ALIM';
-  if (t.includes('ihale') || t.includes('sözleşme') || t.includes('iş ortaklığı') || t.includes('anlaşma')) return 'IHALE';
+  if (t.includes('iş birliği') || t.includes('ortaklık') || t.includes('anlaşma') || t.includes('protokol')) return 'YEN_IS_ILISKISI';
+  if (t.includes('ihale') || t.includes('sözleşme') || t.includes('tedarik')) return 'IHALE';
   if (t.includes('yönetim kurulu') || t.includes('genel kurul') || t.includes('atama') || t.includes('görevden')) return 'YK_KARARI';
   if (t.includes('tahvil') || t.includes('bono') || t.includes('eurobond') || t.includes('kira sertifikası')) return 'BORCLANMA';
   if (t.includes('özel durum') || t.includes('içsel bilgi') || t.includes('ozel durum')) return 'OZEL_DURUM';
@@ -47,15 +53,16 @@ function extractCompanyCode(title: string, creator?: string): string {
 
 function scoreKap(title: string, category: KapCategory): number {
   const scores: Record<KapCategory, number> = {
-    FINANSAL_TABLO: 92,
-    IHALE:          88,
-    TEMETTU:        85,
+    FINANSAL_TABLO:   92,
+    IHALE:            88,
+    TEMETTU:          85,
     SERMAYE_ARTIRIMI: 87,
-    OZEL_DURUM:     78,
-    GERI_ALIM:      80,
-    BORCLANMA:      75,
-    YK_KARARI:      45,
-    DIGER:          35,
+    YEN_IS_ILISKISI:  82,
+    OZEL_DURUM:       78,
+    GERI_ALIM:        80,
+    BORCLANMA:        75,
+    YK_KARARI:        45,
+    DIGER:            35,
   };
   let base = scores[category] ?? 40;
 
@@ -86,16 +93,18 @@ async function fetchKapRss(): Promise<KapDisclosure[]> {
     const category = classifyKap(title);
     const companyCode = extractCompanyCode(title, creator);
 
+    const score = scoreKap(title, category);
     return {
       id: `kap-live-${idx}`,
       companyCode,
       companyName: creator ?? companyCode,
       title,
+      summary: item.contentSnippet ?? '',
       category,
       date: item.pubDate ? new Date(item.pubDate).toISOString() : new Date().toISOString(),
-      summary: item.contentSnippet ?? '',
       sourceUrl: item.link ?? KAP_RSS_URL,
-      importanceScore: scoreKap(title, category),
+      importanceScore: score,
+      contentReady: score >= 55 && CONTENT_READY_CATEGORIES.has(category),
     };
   });
 }
