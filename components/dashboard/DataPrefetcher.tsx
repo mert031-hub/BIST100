@@ -4,15 +4,18 @@ import { useEffect } from 'react';
 import { useDashboardStore } from '@/store/dashboard-store';
 
 /**
- * Renders nothing. On mount, silently pre-fetches /api/kap so the KAP tab
- * opens instantly without a loading spinner. Also populates kapCounts for
- * the LeftPanel leaderboard before the user visits the KAP tab.
+ * Renders nothing. On mount, silently pre-fetches /api/kap and /api/tcmb so
+ * those tabs open instantly. Also populates store slices used by OverviewPanel,
+ * UnifiedFeedPanel, and ContentStudio.
  */
 export default function DataPrefetcher() {
-  const { setKapPrefetchData, setKapCounts, setTopKapItems } = useDashboardStore();
+  const {
+    setKapPrefetchData, setKapCounts, setTopKapItems,
+    setTopTcmbIndicators,
+  } = useDashboardStore();
 
   useEffect(() => {
-    const load = async () => {
+    const loadKap = async () => {
       try {
         const res = await fetch('/api/kap');
         const d   = await res.json();
@@ -20,12 +23,12 @@ export default function DataPrefetcher() {
 
         setKapPrefetchData({ disclosures, source: d.source ?? 'mock' });
 
-        // Top KAP items for OverviewPanel and ContentStudio
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const sorted = [...disclosures].sort((a: any, b: any) => (b.importanceScore ?? 0) - (a.importanceScore ?? 0));
+        const sorted = [...disclosures].sort(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (a: any, b: any) => (b.importanceScore ?? 0) - (a.importanceScore ?? 0),
+        );
         setTopKapItems(sorted.slice(0, 10));
 
-        // Build company → count map for LeftPanel leaderboard
         const counts: Record<string, number> = {};
         for (const disc of disclosures) {
           counts[disc.companyCode] = (counts[disc.companyCode] ?? 0) + 1;
@@ -36,8 +39,20 @@ export default function DataPrefetcher() {
       }
     };
 
-    load();
-  }, [setKapPrefetchData, setKapCounts, setTopKapItems]);
+    const loadTcmb = async () => {
+      try {
+        const res = await fetch('/api/tcmb');
+        const d   = await res.json();
+        const indicators = d.indicators ?? [];
+        setTopTcmbIndicators(indicators);
+      } catch {
+        // silent — TcmbPanel will fetch on its own if needed
+      }
+    };
+
+    loadKap();
+    loadTcmb();
+  }, [setKapPrefetchData, setKapCounts, setTopKapItems, setTopTcmbIndicators]);
 
   return null;
 }

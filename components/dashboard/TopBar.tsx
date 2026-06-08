@@ -126,10 +126,10 @@ export default function TopBar() {
       <div style={{ display: 'flex', flex: 1, height: '100%', overflow: 'hidden' }}>
         {kpis.map((item) => (
           <div key={item.key} style={{
-            padding: '0 20px', height: '100%', flexShrink: 0,
+            padding: '0 16px', height: '100%', flexShrink: 0,
             display: 'flex', flexDirection: 'column', justifyContent: 'center',
             borderRight: '1px solid var(--border)',
-            opacity: item.isLive ? 1 : 0.7,
+            opacity: item.isLive ? 1 : 0.75,
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 1 }}>
               <span style={{ fontSize: 11, color: 'var(--text-faint)', fontWeight: 500 }}>
@@ -149,6 +149,14 @@ export default function TopBar() {
                 </span>
               )}
             </div>
+            {!item.isLive && item.errorReason && (
+              <div style={{
+                fontSize: 8, fontWeight: 600, letterSpacing: 0.3,
+                color: '#EF4444', marginTop: 1, whiteSpace: 'nowrap',
+              }}>
+                {item.errorReason}
+              </div>
+            )}
           </div>
         ))}
       </div>

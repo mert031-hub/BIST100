@@ -379,7 +379,7 @@ export default function ContentStudio() {
     selectedSources, removeSource, clearSources, addSource,
     activePlatform, setActivePlatform,
     generatedContent, generateForPlatform,
-    topNewsItems, topKapItems,
+    topNewsItems, topKapItems, topBrokerItems,
   } = useDashboardStore();
 
   const [editedTitle,   setEditedTitle]   = useState('');
@@ -421,6 +421,7 @@ export default function ContentStudio() {
   function handleAutoFillDaily() {
     clearSources();
     setActiveTemplate('DAILY');
+    // Top 10 across all 3 sources, sorted by effective score
     const combined = [
       ...topNewsItems.map((n) => ({
         id: n.id, type: 'NEWS' as const,
@@ -429,10 +430,21 @@ export default function ContentStudio() {
       })),
       ...topKapItems.map((k) => ({
         id: k.id, type: 'KAP' as const,
-        title: k.title, score: k.importanceScore,
+        title: k.title, score: Math.min(100, k.importanceScore + 15),
         date: k.date, url: k.sourceUrl,
       })),
-    ].sort((a, b) => b.score - a.score).slice(0, 5);
+      ...topBrokerItems.map((b) => {
+        const tp = b.newTargetPrice > 0
+          ? `, TP ${b.newTargetPrice.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL`
+          : '';
+        return {
+          id: b.id, type: 'BROKER_REPORT' as const,
+          title: `${b.institution} → ${b.companyCode}: ${b.recommendation}${tp}`,
+          score: b.importanceScore,
+          date: b.date, url: b.sourceUrl,
+        };
+      }),
+    ].sort((a, b) => b.score - a.score).slice(0, 10);
     for (const item of combined) {
       addSource({ id: item.id, type: item.type, title: item.title, date: item.date, url: item.url });
     }
@@ -441,7 +453,7 @@ export default function ContentStudio() {
   function handleAutoFillKap() {
     clearSources();
     setActiveTemplate('FLASH');
-    for (const k of topKapItems.slice(0, 3)) {
+    for (const k of topKapItems.slice(0, 5)) {
       addSource({ id: k.id, type: 'KAP', title: k.title, date: k.date, url: k.sourceUrl });
     }
   }

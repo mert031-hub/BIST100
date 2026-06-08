@@ -71,16 +71,18 @@ export default function BrokerRadar() {
   const [activeFilter, setActiveFilter] = useState<FilterKey>('ALL');
   const [showProbes, setShowProbes]   = useState(false);
 
-  const { selectedSources, addSource, removeSource } = useDashboardStore();
+  const { selectedSources, addSource, removeSource, setTopBrokerItems } = useDashboardStore();
 
   useEffect(() => {
     async function load() {
       try {
         const res = await fetch('/api/brokers');
         const d   = await res.json();
-        setReports(d.reports ?? []);
+        const rpts = d.reports ?? [];
+        setReports(rpts);
         setSource(d.source ?? 'mock');
         setSourceStatus(d.sourceStatus ?? []);
+        setTopBrokerItems(rpts.slice(0, 20));
       } catch { /* keep previous */ }
       finally { setLoading(false); }
     }

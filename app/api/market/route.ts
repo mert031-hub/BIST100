@@ -15,6 +15,8 @@ export interface MarketKpi {
   changeStr: string;
   up: boolean;
   isLive: boolean;
+  /** Set when isLive=false — shown inline in TopBar */
+  errorReason?: string;
 }
 
 interface MarketResponse {
@@ -35,15 +37,18 @@ const MARKET_SYMBOLS = [
 ] as const;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function fetchQuote(yf: any, symbol: string, decimals: number) {
+async function fetchQuote(yf: any, symbol: string, decimals: number): Promise<
+  | { value: string; changeStr: string; up: boolean; error?: undefined }
+  | { value?: undefined; error: string }
+> {
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const q = (await withTimeout(yf.quote(symbol), 6000)) as Record<string, any>;
-    if (!q || typeof q['regularMarketPrice'] !== 'number') return null;
-
-    const price    = q['regularMarketPrice']    as number;
+    if (!q || typeof q['regularMarketPrice'] !== 'number') {
+      return { error: 'VERİ BOŞ' };
+    }
+    const price     = q['regularMarketPrice']    as number;
     const changePct = (q['regularMarketChangePercent'] as number | undefined) ?? 0;
-
     return {
       value:     decimals === 0
         ? price.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
@@ -51,8 +56,11 @@ async function fetchQuote(yf: any, symbol: string, decimals: number) {
       changeStr: (changePct >= 0 ? '▲ ' : '▼ ') + Math.abs(changePct).toFixed(2) + '%',
       up:        changePct >= 0,
     };
-  } catch {
-    return null;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : '';
+    if (msg.includes('timeout') || msg.includes('abort')) return { error: 'ZAMAN AŞIMI' };
+    if (msg.includes('ECONNREFUSED') || msg.includes('ENOTFOUND')) return { error: 'BAĞLANTI HATASI' };
+    return { error: 'YAHOO ERİŞİM HATASI' };
   }
 }
 
@@ -103,29 +111,33 @@ export async function GET() {
     let liveCount = 0;
     const kpis: MarketKpi[] = MARKET_SYMBOLS.map((s, i) => {
       const q = quoteResults[i];
-      if (q) liveCount++;
-      return {
+      const live = q !== null && q !== undefined && !('error' in q && q.error);
+      if (live) liveCount++;
+      const kpi: MarketKpi = {
         key:       s.key,
         label:     s.label,
-        value:     q?.value     ?? '—',
-        changeStr: q?.changeStr ?? '',
-        up:        q?.up        ?? true,
-        isLive:    q !== null,
+        value:     live && q && 'value' in q ? q.value! : '—',
+        changeStr: live && q && 'changeStr' in q ? (q.changeStr as string) : '',
+        up:        live && q && 'up' in q ? (q.up as boolean) : true,
+        isLive:    live,
       };
+      if (!live && q && 'error' in q) kpi.errorReason = q.error as string;
+      return kpi;
     });
 
     // Politika Faizi (TCMB EVDS or mock fallback)
     const faizLive = faizVal !== null;
     if (faizLive) liveCount++;
     kpis.push({
-      key:       'faiz',
-      label:     'TCMB Faiz',
-      value:     faizLive
+      key:         'faiz',
+      label:       'TCMB Faiz',
+      value:       faizLive
         ? '%' + faizVal!.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
         : '%50,00',
-      changeStr: '',
-      up:        false,
-      isLive:    faizLive,
+      changeStr:   '',
+      up:          false,
+      isLive:      faizLive,
+      errorReason: faizLive ? undefined : (process.env.EVDS_API_KEY ? 'EVDS ERİŞİM HATASI' : 'API KEY YOK'),
     });
 
     const total  = MARKET_SYMBOLS.length + 1;
@@ -139,14 +151,15 @@ export async function GET() {
     cache.set(response);
     return NextResponse.json(response);
 
-  } catch {
+  } catch (e) {
+    const reason = e instanceof Error ? e.message.slice(0, 40) : 'YF MODÜL HATASI';
     const fallback: MarketResponse = {
       kpis: [
-        { key: 'bist100', label: 'BIST100',   value: '—',      changeStr: '', up: true,  isLive: false },
-        { key: 'usd_try', label: 'USD/TRY',   value: '—',      changeStr: '', up: true,  isLive: false },
-        { key: 'eur_try', label: 'EUR/TRY',   value: '—',      changeStr: '', up: true,  isLive: false },
-        { key: 'brent',   label: 'Brent',     value: '—',      changeStr: '', up: true,  isLive: false },
-        { key: 'faiz',    label: 'TCMB Faiz', value: '%50,00', changeStr: '', up: false, isLive: false },
+        { key: 'bist100', label: 'BIST100',   value: '—',      changeStr: '', up: true,  isLive: false, errorReason: reason },
+        { key: 'usd_try', label: 'USD/TRY',   value: '—',      changeStr: '', up: true,  isLive: false, errorReason: reason },
+        { key: 'eur_try', label: 'EUR/TRY',   value: '—',      changeStr: '', up: true,  isLive: false, errorReason: reason },
+        { key: 'brent',   label: 'Brent',     value: '—',      changeStr: '', up: true,  isLive: false, errorReason: reason },
+        { key: 'faiz',    label: 'TCMB Faiz', value: '%50,00', changeStr: '', up: false, isLive: false, errorReason: process.env.EVDS_API_KEY ? 'EVDS ERİŞİM HATASI' : 'API KEY YOK' },
       ],
       source:    'mock',
       liveCount: 0,

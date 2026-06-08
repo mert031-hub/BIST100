@@ -5,8 +5,10 @@ import { ContentSource, ContentPlatform, GeneratedContent } from '@/types/conten
 import { generateContent } from '@/lib/content-generator';
 import type { KapDisclosure } from '@/types/kap';
 import type { NewsItem } from '@/types/news';
+import type { BrokerReport } from '@/types/broker';
+import type { TcmbIndicator } from '@/types/tcmb';
 
-export type ActiveView = 'overview' | 'news' | 'kap' | 'brokers' | 'tcmb';
+export type ActiveView = 'overview' | 'news' | 'kap' | 'brokers' | 'tcmb' | 'feed';
 
 interface DashboardStore {
   selectedSources: ContentSource[];
@@ -48,6 +50,18 @@ interface DashboardStore {
   /** Top KAP disclosures by score — shared with ContentStudio and OverviewPanel */
   topKapItems: KapDisclosure[];
   setTopKapItems: (items: KapDisclosure[]) => void;
+
+  /** Top broker reports by score — shared with UnifiedFeedPanel and OverviewPanel */
+  topBrokerItems: BrokerReport[];
+  setTopBrokerItems: (items: BrokerReport[]) => void;
+
+  /** TCMB indicators — shared with UnifiedFeedPanel */
+  topTcmbIndicators: TcmbIndicator[];
+  setTopTcmbIndicators: (items: TcmbIndicator[]) => void;
+
+  /** Company detail overlay — set to a ticker code to open, null to close */
+  selectedCompany: string | null;
+  setSelectedCompany: (code: string | null) => void;
 }
 
 export const useDashboardStore = create<DashboardStore>((set, get) => ({
@@ -96,4 +110,13 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
 
   topKapItems: [],
   setTopKapItems: (items) => set({ topKapItems: items }),
+
+  topBrokerItems: [],
+  setTopBrokerItems: (items) => set({ topBrokerItems: items }),
+
+  topTcmbIndicators: [],
+  setTopTcmbIndicators: (items) => set({ topTcmbIndicators: items }),
+
+  selectedCompany: null,
+  setSelectedCompany: (code) => set({ selectedCompany: code }),
 }));

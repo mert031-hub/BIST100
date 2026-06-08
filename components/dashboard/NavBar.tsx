@@ -6,11 +6,11 @@ type NavTab = { label: string; view: ActiveView; disabled?: boolean };
 
 const TABS: NavTab[] = [
   { label: 'Genel Bakış',    view: 'overview' },
-  { label: 'Haberler',       view: 'news' },
-  { label: 'KAP',            view: 'kap' },
-  { label: 'Kurum Radarı',   view: 'brokers' },
-  { label: 'TCMB Verileri',  view: 'tcmb' },
-  { label: 'Takvim',         view: 'news', disabled: true },
+  { label: 'Tek Akış',       view: 'feed'     },
+  { label: 'Haberler',       view: 'news'     },
+  { label: 'KAP',            view: 'kap'      },
+  { label: 'Kurum Radarı',   view: 'brokers'  },
+  { label: 'TCMB Verileri',  view: 'tcmb'     },
 ];
 
 export default function NavBar() {
