@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { BrokerReport, BrokerRecommendation, BrokerReportType, REC_RANK } from '@/types/broker';
 import { useDashboardStore } from '@/store/dashboard-store';
+import type { SourceProbeResult } from '@/lib/broker-sources';
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -67,8 +68,10 @@ function matchesFilter(r: BrokerReport, key: FilterKey): boolean {
 export default function BrokerRadar() {
   const [reports, setReports] = useState<BrokerReport[]>([]);
   const [source, setSource] = useState<'live' | 'mock'>('mock');
+  const [sourceStatus, setSourceStatus] = useState<SourceProbeResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<FilterKey>('ALL');
+  const [showProbes, setShowProbes] = useState(false);
 
   const { selectedSources, addSource, removeSource } = useDashboardStore();
 
@@ -79,6 +82,7 @@ export default function BrokerRadar() {
         const d = await res.json();
         setReports(d.reports ?? []);
         setSource(d.source ?? 'mock');
+        setSourceStatus(d.sourceStatus ?? []);
       } catch { /* silent */ }
       finally { setLoading(false); }
     }
@@ -100,6 +104,87 @@ export default function BrokerRadar() {
         )}
         <span className="ph-right">{filtered.length} RAPOR</span>
       </div>
+
+      {/* Source status bar */}
+      {sourceStatus.length > 0 && (
+        <div style={{
+          flexShrink: 0, borderBottom: '1px solid var(--border)',
+          background: 'var(--bg-3)',
+        }}>
+          <button
+            onClick={() => setShowProbes((v) => !v)}
+            style={{
+              width: '100%', padding: '3px 8px', background: 'transparent',
+              border: 'none', cursor: 'pointer', display: 'flex',
+              alignItems: 'center', gap: 5, fontFamily: 'monospace',
+            }}
+          >
+            <span style={{ fontSize: 8, letterSpacing: 1, color: 'var(--text-dim)', textTransform: 'uppercase' }}>
+              KAYNAK DURUMU
+            </span>
+            <span style={{ fontSize: 8, color: 'var(--text-faint)', marginLeft: 2 }}>
+              {sourceStatus.filter((p) => p.status === 'reachable').length}/{sourceStatus.length} ERİŞİLEBİLİR
+            </span>
+            <div style={{ display: 'flex', gap: 3, marginLeft: 6, flexWrap: 'wrap' }}>
+              {sourceStatus.map((p) => {
+                const col =
+                  p.status === 'reachable' ? 'var(--green)' :
+                  p.status === 'blocked'   ? 'var(--amber-dim)' :
+                  p.status === 'skipped'   ? 'var(--border-3)' :
+                  'var(--red-dim)';
+                return (
+                  <div
+                    key={p.id}
+                    title={`${p.institution}: ${p.status}${p.error ? ` — ${p.error}` : ''}`}
+                    style={{ width: 5, height: 5, borderRadius: '50%', background: col, flexShrink: 0 }}
+                  />
+                );
+              })}
+            </div>
+            <span style={{ marginLeft: 'auto', fontSize: 7, color: 'var(--text-faint)' }}>
+              {showProbes ? '▲' : '▼'}
+            </span>
+          </button>
+
+          {showProbes && (
+            <div style={{ padding: '0 8px 5px' }}>
+              {sourceStatus.map((p) => {
+                const statusColor =
+                  p.status === 'reachable' ? 'var(--green)' :
+                  p.status === 'blocked'   ? 'var(--amber)' :
+                  p.status === 'skipped'   ? 'var(--text-faint)' :
+                  'var(--red)';
+                const statusLabel =
+                  p.status === 'reachable' ? 'OK' :
+                  p.status === 'blocked'   ? `BLK ${p.httpStatus ?? ''}` :
+                  p.status === 'timeout'   ? 'TMO' :
+                  p.status === 'skipped'   ? 'SKIP' :
+                  'ERR';
+                return (
+                  <div key={p.id} style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    padding: '2px 0', borderBottom: '1px solid var(--border)',
+                    fontSize: 8,
+                  }}>
+                    <span style={{ color: statusColor, fontWeight: 'bold', minWidth: 32, letterSpacing: 0.5 }}>
+                      {statusLabel}
+                    </span>
+                    <span style={{ color: 'var(--cream-dim)', flexShrink: 0, minWidth: 30 }}>
+                      {p.type}
+                    </span>
+                    <span style={{ color: 'var(--text-dim)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {p.institution}
+                    </span>
+                    <span style={{ color: 'var(--text-faint)', flexShrink: 0 }}>
+                      {p.durationMs}ms
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Filter chips */}
       <div style={{
