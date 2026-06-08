@@ -38,9 +38,12 @@ function Score({ score }: { score: number }) {
   return <span className={cls}>{score}</span>;
 }
 
+type DataSource = 'live' | 'partial' | 'mock';
+
 export default function NewsPanel() {
   const [items, setItems] = useState<NewsItem[]>([]);
-  const [source, setSource] = useState<'live' | 'mock'>('mock');
+  const [source, setSource] = useState<DataSource>('mock');
+  const [okCount, setOkCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const { selectedSources, addSource, removeSource, newsFilter, setNewsFilter } = useDashboardStore();
 
@@ -50,8 +53,9 @@ export default function NewsPanel() {
         const res = await fetch('/api/news');
         const d = await res.json();
         setItems(d.items ?? []);
-        setSource(d.source);
-      } catch { /* silent */ }
+        setSource(d.source ?? 'mock');
+        setOkCount(d.okCount ?? 0);
+      } catch { /* silent — keep previous state */ }
       finally { setLoading(false); }
     }
     load();
@@ -70,8 +74,16 @@ export default function NewsPanel() {
   return (
     <div className="panel">
       <div className="ph">
-        <span className={`dot ${source === 'live' ? 'dot-live' : 'dot-mock'}`} />
+        <span className={`dot ${source === 'live' ? 'dot-live' : source === 'partial' ? '' : 'dot-mock'}`}
+          style={source === 'partial' ? { background: 'var(--amber)', boxShadow: '0 0 4px var(--amber)' } : undefined}
+        />
         <span className="ph-title">EKONOMİ HABERLERİ</span>
+        {source === 'partial' && (
+          <span style={{ fontSize: 8, color: 'var(--amber)', letterSpacing: 1 }}>{okCount} KAYNAK AKTİF</span>
+        )}
+        {source === 'mock' && (
+          <span style={{ fontSize: 8, color: 'var(--text-dim)', letterSpacing: 1 }}>DEMO VERİ</span>
+        )}
         <span className="ph-right">{filtered.length} HABER</span>
       </div>
 
