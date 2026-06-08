@@ -5,27 +5,27 @@ import { ContentSource, ContentPlatform, GeneratedContent } from '@/types/conten
 import { generateContent } from '@/lib/content-generator';
 
 interface DashboardStore {
-  // Selected items for content studio
   selectedSources: ContentSource[];
   addSource: (source: ContentSource) => void;
   removeSource: (id: string) => void;
   clearSources: () => void;
 
-  // Content generation
   activePlatform: ContentPlatform;
   setActivePlatform: (platform: ContentPlatform) => void;
   generatedContent: GeneratedContent | null;
   generateForPlatform: () => void;
 
-  // UI state
   activePanel: 'news' | 'kap' | 'brokers';
   setActivePanel: (panel: 'news' | 'kap' | 'brokers') => void;
 
-  // Filter state
   newsFilter: string;
   setNewsFilter: (filter: string) => void;
   kapFilter: string;
   setKapFilter: (filter: string) => void;
+
+  // Company mention counts populated by NewsPanel after each fetch
+  companyCounts: Record<string, number>;
+  setCompanyCounts: (counts: Record<string, number>) => void;
 }
 
 export const useDashboardStore = create<DashboardStore>((set, get) => ({
@@ -48,8 +48,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
   generateForPlatform: () => {
     const { selectedSources, activePlatform } = get();
     if (selectedSources.length === 0) return;
-    const content = generateContent(activePlatform, selectedSources);
-    set({ generatedContent: content });
+    set({ generatedContent: generateContent(activePlatform, selectedSources) });
   },
 
   activePanel: 'news',
@@ -59,4 +58,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
   setNewsFilter: (filter) => set({ newsFilter: filter }),
   kapFilter: '',
   setKapFilter: (filter) => set({ kapFilter: filter }),
+
+  companyCounts: {},
+  setCompanyCounts: (counts) => set({ companyCounts: counts }),
 }));

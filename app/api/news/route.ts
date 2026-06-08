@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { MOCK_NEWS } from '@/data/mock/news';
 import type { NewsItem } from '@/types/news';
-import { categorizeNews, scoreNews } from '@/lib/news-scorer';
+import { categorizeNews, scoreNews, isFinanceRelevant, isWithinMaxAge } from '@/lib/news-scorer';
 import { matchCompanies } from '@/lib/company-matcher';
 import { withTimeout } from '@/lib/fetch-helpers';
 
@@ -9,21 +9,17 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 const FEED_TIMEOUT = 6000;
-const MAX_ITEMS_PER_FEED = 10;
+const MAX_ITEMS_PER_FEED = 15;
 
-/**
- * Turkish financial / economic RSS feeds — ordered by reliability.
- * Each feed is tried independently; failures are isolated.
- */
 const RSS_FEEDS = [
-  { url: 'https://feeds.bbci.co.uk/turkish/rss.xml',             source: 'BBC Türkçe'  },
-  { url: 'https://www.ntv.com.tr/ekonomi.rss',                   source: 'NTV Ekonomi'  },
-  { url: 'https://www.sabah.com.tr/rss/ekonomi.xml',             source: 'Sabah'        },
-  { url: 'https://www.hurriyet.com.tr/rss/ekonomi',              source: 'Hürriyet'     },
-  { url: 'https://www.milliyet.com.tr/rss/rssnew/ekonomirss.xml',source: 'Milliyet'     },
-  { url: 'https://www.bloomberght.com/rss',                      source: 'BloombergHT'  },
-  { url: 'https://www.dunya.com/rss/ekonomi.xml',                source: 'Dünya'        },
-  { url: 'https://ekonomi.haber7.com/rss.php',                   source: 'Haber7'       },
+  { url: 'https://feeds.bbci.co.uk/turkish/rss.xml',              source: 'BBC Türkçe'  },
+  { url: 'https://www.ntv.com.tr/ekonomi.rss',                    source: 'NTV Ekonomi'  },
+  { url: 'https://www.sabah.com.tr/rss/ekonomi.xml',              source: 'Sabah'        },
+  { url: 'https://www.hurriyet.com.tr/rss/ekonomi',               source: 'Hürriyet'     },
+  { url: 'https://www.milliyet.com.tr/rss/rssnew/ekonomirss.xml', source: 'Milliyet'     },
+  { url: 'https://www.bloomberght.com/rss',                       source: 'BloombergHT'  },
+  { url: 'https://www.dunya.com/rss/ekonomi.xml',                 source: 'Dünya'        },
+  { url: 'https://ekonomi.haber7.com/rss.php',                    source: 'Haber7'       },
 ] as const;
 
 interface FeedResult {
@@ -36,60 +32,61 @@ interface FeedResult {
 async function parseFeed(
   feed: { url: string; source: string },
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  parser: any
+  parser: any,
 ): Promise<{ items: NewsItem[]; result: FeedResult }> {
   try {
-    const parsed = await withTimeout(
-      parser.parseURL(feed.url),
-      FEED_TIMEOUT
-    );
+    const parsed = await withTimeout(parser.parseURL(feed.url), FEED_TIMEOUT);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const items: NewsItem[] = ((parsed as any).items ?? [])
+    const items: NewsItem[] = (
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ((parsed as any).items ?? []) as Array<{
+        title?: string; contentSnippet?: string; summary?: string;
+        pubDate?: string; link?: string;
+      }>
+    )
       .slice(0, MAX_ITEMS_PER_FEED)
-      .map((item: { title?: string; contentSnippet?: string; summary?: string; pubDate?: string; link?: string }, idx: number): NewsItem => {
-        const title = item.title?.trim() ?? '';
+      .map((item, idx): NewsItem | null => {
+        const title       = item.title?.trim() ?? '';
         const description = (item.contentSnippet ?? item.summary ?? '').trim();
-        const category = categorizeNews(title, description);
+
+        if (title.length < 10) return null;
+        if (!isFinanceRelevant(title, description)) return null;
+
+        const dateIso = item.pubDate
+          ? new Date(item.pubDate).toISOString()
+          : new Date().toISOString();
+
+        if (!isWithinMaxAge(dateIso)) return null;
+
+        const category  = categorizeNews(title, description);
         const companies = matchCompanies(title + ' ' + description);
 
         return {
           id: `rss-${feed.source.replace(/\s/g, '')}-${idx}`,
           title,
           description,
-          date: item.pubDate ? new Date(item.pubDate).toISOString() : new Date().toISOString(),
+          date: dateIso,
           source: feed.source,
           sourceUrl: item.link ?? feed.url,
           category,
           relatedCompanies: companies,
-          importanceScore: scoreNews(title, description, category),
+          importanceScore: scoreNews(title, description, category, dateIso),
         };
       })
-      .filter((i: NewsItem) => i.title.length > 5); // discard stub items
+      .filter((i): i is NewsItem => i !== null);
 
-    return {
-      items,
-      result: { source: feed.source, status: 'ok', count: items.length },
-    };
+    return { items, result: { source: feed.source, status: 'ok', count: items.length } };
   } catch (err) {
     return {
       items: [],
       result: {
-        source: feed.source,
-        status: 'error',
-        count: 0,
+        source: feed.source, status: 'error', count: 0,
         error: err instanceof Error ? err.message : String(err),
       },
     };
   }
 }
 
-/**
- * Deduplicate news items by:
- *  1. Normalised title prefix (first 80 chars, lowercase, collapsed whitespace)
- *  2. Exact source URL
- * Items from feeds with higher importance scores win when titles collide.
- */
 function deduplicate(items: NewsItem[]): NewsItem[] {
   const seenTitles = new Set<string>();
   const seenUrls   = new Set<string>();
@@ -97,11 +94,21 @@ function deduplicate(items: NewsItem[]): NewsItem[] {
     const titleKey = item.title.toLowerCase().replace(/\s+/g, ' ').trim().slice(0, 80);
     const urlKey   = item.sourceUrl.trim();
     if (seenTitles.has(titleKey)) return false;
-    if (urlKey && seenUrls.has(urlKey))  return false;
+    if (urlKey && seenUrls.has(urlKey)) return false;
     seenTitles.add(titleKey);
     if (urlKey) seenUrls.add(urlKey);
     return true;
   });
+}
+
+function buildCompanyCounts(items: NewsItem[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const item of items) {
+    for (const code of item.relatedCompanies) {
+      counts[code] = (counts[code] ?? 0) + 1;
+    }
+  }
+  return counts;
 }
 
 export async function GET() {
@@ -115,19 +122,18 @@ export async function GET() {
       },
     });
 
-    const feedResults = await Promise.all(
-      RSS_FEEDS.map((feed) => parseFeed(feed, parser))
-    );
+    const feedResults = await Promise.all(RSS_FEEDS.map((f) => parseFeed(f, parser)));
 
-    const allItems = feedResults.flatMap((r) => r.items);
+    const allItems   = feedResults.flatMap((r) => r.items);
     const feedStatus = feedResults.map((r) => r.result);
-    const okCount = feedStatus.filter((s) => s.status === 'ok' && s.count > 0).length;
+    const okCount    = feedStatus.filter((s) => s.status === 'ok' && s.count > 0).length;
 
     if (allItems.length === 0) {
       return NextResponse.json({
         items: MOCK_NEWS,
         source: 'mock',
         feedStatus,
+        companyCounts: buildCompanyCounts(MOCK_NEWS),
         lastFetch: new Date().toISOString(),
       });
     }
@@ -136,13 +142,12 @@ export async function GET() {
       .sort((a, b) => b.importanceScore - a.importanceScore)
       .slice(0, 40);
 
-    const source = okCount === RSS_FEEDS.length ? 'live' : okCount > 0 ? 'partial' : 'mock';
-
     return NextResponse.json({
       items: sorted,
-      source,
+      source: okCount === RSS_FEEDS.length ? 'live' : okCount > 0 ? 'partial' : 'mock',
       feedStatus,
       okCount,
+      companyCounts: buildCompanyCounts(sorted),
       lastFetch: new Date().toISOString(),
     });
   } catch (err) {
@@ -150,6 +155,7 @@ export async function GET() {
       items: MOCK_NEWS,
       source: 'mock',
       feedStatus: [],
+      companyCounts: buildCompanyCounts(MOCK_NEWS),
       error: err instanceof Error ? err.message : String(err),
       lastFetch: new Date().toISOString(),
     });
