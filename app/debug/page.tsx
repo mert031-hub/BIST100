@@ -3,12 +3,13 @@
 import { useState, useCallback } from 'react';
 
 const ENDPOINTS = [
-  { key: 'health',  path: '/api/health',  label: 'HEALTH' },
-  { key: 'stocks',  path: '/api/stocks',  label: 'STOCKS' },
-  { key: 'news',    path: '/api/news',    label: 'NEWS' },
-  { key: 'kap',     path: '/api/kap',     label: 'KAP' },
+  { key: 'health',  path: '/api/health',  label: 'HEALTH'  },
+  { key: 'market',  path: '/api/market',  label: 'MARKET'  },
+  { key: 'stocks',  path: '/api/stocks',  label: 'STOCKS'  },
+  { key: 'news',    path: '/api/news',    label: 'NEWS'     },
+  { key: 'kap',     path: '/api/kap',     label: 'KAP'     },
   { key: 'brokers', path: '/api/brokers', label: 'BROKERS' },
-  { key: 'tcmb',    path: '/api/tcmb',    label: 'TCMB' },
+  { key: 'tcmb',    path: '/api/tcmb',    label: 'TCMB'    },
 ] as const;
 
 type EndpointKey = (typeof ENDPOINTS)[number]['key'];
@@ -39,12 +40,12 @@ const INIT: EndpointState = {
 
 export default function DebugPage() {
   const [states, setStates] = useState<Record<EndpointKey, EndpointState>>({
-    health: { ...INIT }, stocks: { ...INIT }, news: { ...INIT },
+    health: { ...INIT }, market: { ...INIT }, stocks: { ...INIT }, news: { ...INIT },
     kap:    { ...INIT }, brokers: { ...INIT }, tcmb: { ...INIT },
   });
 
   const [expanded, setExpanded] = useState<Record<EndpointKey, boolean>>({
-    health: true, stocks: false, news: false,
+    health: true, market: false, stocks: false, news: false,
     kap: false, brokers: false, tcmb: false,
   });
 
@@ -283,6 +284,9 @@ export default function DebugPage() {
 
                   {jsonStr && (
                     <>
+                      {/* Structured insight for specific endpoints */}
+                      <EndpointInsight endpointKey={key} data={s.json} />
+
                       {/* Meta line */}
                       <div style={{
                         padding: '0 12px 6px',
@@ -333,6 +337,120 @@ export default function DebugPage() {
       </div>
     </div>
   );
+}
+
+/** Structured insight panels for each endpoint type */
+function EndpointInsight({ endpointKey, data }: { endpointKey: EndpointKey; data: unknown }) {
+  if (!data || typeof data !== 'object') return null;
+  const d = data as Record<string, unknown>;
+
+  const row = (label: string, value: React.ReactNode, color = '#8a8070') => (
+    <div key={label} style={{ display: 'flex', gap: 8, padding: '1px 0' }}>
+      <span style={{ color: '#5a5040', minWidth: 120, fontSize: 9 }}>{label}</span>
+      <span style={{ color, fontSize: 9, fontWeight: 600 }}>{value}</span>
+    </div>
+  );
+
+  const sourceColor = (src: string) =>
+    src === 'live' || src.startsWith('live') ? '#4aac44' :
+    src === 'partial' ? '#c8a84b' : '#7a6428';
+
+  if (endpointKey === 'market') {
+    const kpis = (d.kpis as Array<Record<string, unknown>>) ?? [];
+    return (
+      <div style={{ margin: '0 12px 8px', padding: '8px 10px', background: 'rgba(0,0,0,0.2)', border: '1px solid #1a1a18' }}>
+        <div style={{ fontSize: 8, color: '#c8a84b', letterSpacing: 1, marginBottom: 6 }}>MARKET KPI DURUMU</div>
+        {kpis.map((k) => row(
+          String(k.label),
+          `${k.value}  ${k.changeStr || ''}  ${k.isLive ? '● CANLI' : '○ DEMO'}`,
+          k.isLive ? '#4aac44' : '#7a6428',
+        ))}
+        {row('Source', String(d.source ?? '—'), sourceColor(String(d.source ?? '')))}
+        {row('Live / Total', `${d.liveCount} / ${d.total}`)}
+      </div>
+    );
+  }
+
+  if (endpointKey === 'stocks') {
+    return (
+      <div style={{ margin: '0 12px 8px', padding: '8px 10px', background: 'rgba(0,0,0,0.2)', border: '1px solid #1a1a18' }}>
+        <div style={{ fontSize: 8, color: '#c8a84b', letterSpacing: 1, marginBottom: 6 }}>YAHOO FINANCE DURUMU</div>
+        {row('Source', String(d.source ?? '—'), sourceColor(String(d.source ?? '')))}
+        {row('Live / Total', `${d.liveCount ?? '?'} / ${d.totalCount ?? '?'}`)}
+        {(() => {
+          const stocks = (d.stocks as Array<Record<string, unknown>>) ?? [];
+          return stocks.slice(0, 5).map((s) =>
+            row(String(s.symbol ?? ''), `${s.price}  ${s.changePercent}%`),
+          );
+        })()}
+      </div>
+    );
+  }
+
+  if (endpointKey === 'news') {
+    const feeds = (d.feedStatus as Array<Record<string, unknown>>) ?? [];
+    return (
+      <div style={{ margin: '0 12px 8px', padding: '8px 10px', background: 'rgba(0,0,0,0.2)', border: '1px solid #1a1a18' }}>
+        <div style={{ fontSize: 8, color: '#c8a84b', letterSpacing: 1, marginBottom: 6 }}>RSS FEED DURUMU</div>
+        {row('Source', String(d.source ?? '—'), sourceColor(String(d.source ?? '')))}
+        {row('Items', String((d.items as unknown[])?.length ?? 0))}
+        {feeds.map((f) => row(
+          String(f.source ?? ''),
+          `${f.status === 'ok' ? '● OK' : '○ ERR'}  ${f.count ?? 0} haber  ${f.error ? `· ${f.error}` : ''}`,
+          f.status === 'ok' ? '#4aac44' : '#b84444',
+        ))}
+      </div>
+    );
+  }
+
+  if (endpointKey === 'kap') {
+    const strategies = (d.strategies as Array<Record<string, unknown>>) ?? [];
+    return (
+      <div style={{ margin: '0 12px 8px', padding: '8px 10px', background: 'rgba(0,0,0,0.2)', border: '1px solid #1a1a18' }}>
+        <div style={{ fontSize: 8, color: '#c8a84b', letterSpacing: 1, marginBottom: 6 }}>KAP STRATEJİ DURUMU</div>
+        {row('Source', String(d.source ?? '—'), sourceColor(String(d.source ?? '')))}
+        {row('Bildirim', String((d.disclosures as unknown[])?.length ?? 0))}
+        {strategies.map((s) => row(
+          String(s.strategy ?? ''),
+          `${s.success ? '● OK' : '○ FAIL'}  ${s.itemCount ?? 0} item  ${s.durationMs ?? 0}ms  ${s.error ? `· ${s.error}` : ''}`,
+          s.success ? '#4aac44' : '#b84444',
+        ))}
+      </div>
+    );
+  }
+
+  if (endpointKey === 'tcmb') {
+    const inds = (d.indicators as Array<Record<string, unknown>>) ?? [];
+    return (
+      <div style={{ margin: '0 12px 8px', padding: '8px 10px', background: 'rgba(0,0,0,0.2)', border: '1px solid #1a1a18' }}>
+        <div style={{ fontSize: 8, color: '#c8a84b', letterSpacing: 1, marginBottom: 6 }}>EVDS GÖSTERGE DURUMU</div>
+        {row('Source', String(d.source ?? '—'), sourceColor(String(d.source ?? '')))}
+        {row('Live / Total', `${d.liveCount ?? 0} / ${inds.length}`)}
+        {inds.map((ind) => row(
+          String(ind.label ?? ind.key ?? ''),
+          `${ind.value} ${ind.unit}  (${ind.date})`,
+        ))}
+      </div>
+    );
+  }
+
+  if (endpointKey === 'health') {
+    const sources = (d.sources as Array<Record<string, unknown>>) ?? [];
+    return (
+      <div style={{ margin: '0 12px 8px', padding: '8px 10px', background: 'rgba(0,0,0,0.2)', border: '1px solid #1a1a18' }}>
+        <div style={{ fontSize: 8, color: '#c8a84b', letterSpacing: 1, marginBottom: 6 }}>KAYNAK SAĞLIK RAPORU</div>
+        {row('Overall', String(d.overall ?? '—'), sourceColor(String(d.overall ?? '')))}
+        {row('Reachable', `${d.reachable} / ${d.total}`)}
+        {sources.map((s) => row(
+          String(s.key ?? ''),
+          `${s.status === 'reachable' ? '● AÇIK' : s.status === 'blocked' ? '⊘ BLOK' : '○ HATA'}  ${s.url ?? ''}`,
+          s.status === 'reachable' ? '#4aac44' : s.status === 'blocked' ? '#c8a84b' : '#b84444',
+        ))}
+      </div>
+    );
+  }
+
+  return null;
 }
 
 /** Minimal JSON syntax highlighter — pure inline spans, no deps */

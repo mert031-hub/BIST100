@@ -3,6 +3,7 @@
 import { create } from 'zustand';
 import { ContentSource, ContentPlatform, GeneratedContent } from '@/types/content';
 import { generateContent } from '@/lib/content-generator';
+import type { KapDisclosure } from '@/types/kap';
 
 export type ActiveView = 'news' | 'kap' | 'brokers' | 'tcmb';
 
@@ -34,6 +35,10 @@ interface DashboardStore {
 
   kapCounts: Record<string, number>;
   setKapCounts: (counts: Record<string, number>) => void;
+
+  /** KAP data pre-fetched on page load — so KAP tab opens instantly */
+  kapPrefetchData: { disclosures: KapDisclosure[]; source: string } | null;
+  setKapPrefetchData: (data: { disclosures: KapDisclosure[]; source: string }) => void;
 }
 
 export const useDashboardStore = create<DashboardStore>((set, get) => ({
@@ -73,4 +78,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
 
   kapCounts: {},
   setKapCounts: (counts) => set({ kapCounts: counts }),
+
+  kapPrefetchData: null,
+  setKapPrefetchData: (data) => set({ kapPrefetchData: data }),
 }));

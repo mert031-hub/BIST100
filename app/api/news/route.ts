@@ -4,9 +4,24 @@ import type { NewsItem } from '@/types/news';
 import { categorizeNews, scoreNews, isFinanceRelevant, isWithinMaxAge } from '@/lib/news-scorer';
 import { matchCompanies } from '@/lib/company-matcher';
 import { withTimeout } from '@/lib/fetch-helpers';
+import { makeRouteCache } from '@/lib/route-cache';
+import { createHash } from 'crypto';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+
+const NEWS_CACHE_TTL = 300_000; // 5 minutes
+
+interface NewsResponse {
+  items: NewsItem[];
+  source: 'live' | 'partial' | 'mock';
+  feedStatus: { source: string; status: 'ok' | 'error'; count: number }[];
+  okCount: number;
+  companyCounts: Record<string, number>;
+  lastFetch: string;
+  error?: string;
+}
+const cache = makeRouteCache<NewsResponse>(NEWS_CACHE_TTL);
 
 const FEED_TIMEOUT = 6000;
 const MAX_ITEMS_PER_FEED = 15;
@@ -45,7 +60,7 @@ async function parseFeed(
       }>
     )
       .slice(0, MAX_ITEMS_PER_FEED)
-      .map((item, idx): NewsItem | null => {
+      .map((item): NewsItem | null => {
         const title       = item.title?.trim() ?? '';
         const description = (item.contentSnippet ?? item.summary ?? '').trim();
 
@@ -61,8 +76,12 @@ async function parseFeed(
         const category  = categorizeNews(title, description);
         const companies = matchCompanies(title + ' ' + description);
 
+        // Stable ID: URL+date hash — survives page refreshes, prevents duplicate ContentStudio selections
+        const rawId = (item.link ?? title.slice(0, 80)) + '|' + (item.pubDate ?? dateIso.slice(0, 10));
+        const stableId = 'n-' + createHash('md5').update(rawId).digest('hex').slice(0, 12);
+
         return {
-          id: `rss-${feed.source.replace(/\s/g, '')}-${idx}`,
+          id: stableId,
           title,
           description,
           date: dateIso,
@@ -112,6 +131,9 @@ function buildCompanyCounts(items: NewsItem[]): Record<string, number> {
 }
 
 export async function GET() {
+  const cached = cache.get();
+  if (cached) return NextResponse.json(cached);
+
   try {
     const Parser = (await import('rss-parser')).default;
     const parser = new Parser({
@@ -129,35 +151,43 @@ export async function GET() {
     const okCount    = feedStatus.filter((s) => s.status === 'ok' && s.count > 0).length;
 
     if (allItems.length === 0) {
-      return NextResponse.json({
+      const response: NewsResponse = {
         items: MOCK_NEWS,
         source: 'mock',
         feedStatus,
+        okCount: 0,
         companyCounts: buildCompanyCounts(MOCK_NEWS),
         lastFetch: new Date().toISOString(),
-      });
+      };
+      cache.set(response);
+      return NextResponse.json(response);
     }
 
     const sorted = deduplicate(allItems)
       .sort((a, b) => b.importanceScore - a.importanceScore)
       .slice(0, 40);
 
-    return NextResponse.json({
+    const response: NewsResponse = {
       items: sorted,
       source: okCount === RSS_FEEDS.length ? 'live' : okCount > 0 ? 'partial' : 'mock',
       feedStatus,
       okCount,
       companyCounts: buildCompanyCounts(sorted),
       lastFetch: new Date().toISOString(),
-    });
+    };
+    cache.set(response);
+    return NextResponse.json(response);
   } catch (err) {
-    return NextResponse.json({
+    const response: NewsResponse = {
       items: MOCK_NEWS,
       source: 'mock',
       feedStatus: [],
+      okCount: 0,
       companyCounts: buildCompanyCounts(MOCK_NEWS),
       error: err instanceof Error ? err.message : String(err),
       lastFetch: new Date().toISOString(),
-    });
+    };
+    // Don't cache errors — let next request retry
+    return NextResponse.json(response);
   }
 }

@@ -1,34 +1,32 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import type { MarketKpi } from '@/app/api/market/route';
 
-type KpiItem = {
-  label: string;
-  value: string;
-  change?: string;
-  up?: boolean;
-};
-
-const KPI_ITEMS: KpiItem[] = [
-  { label: 'BIST100',    value: '10.428,54', change: '▲ 0,82%', up: true  },
-  { label: 'USD/TRY',    value: '32,47',     change: '▲ 0,11%', up: true  },
-  { label: 'EUR/TRY',    value: '35,12',     change: '▲ 0,07%', up: true  },
-  { label: 'TCMB Faiz',  value: '%50,00'                                   },
-  { label: 'Brent',      value: '85,42',     change: '▲ 0,41%', up: true  },
+// Displayed while first fetch is in-flight
+const FALLBACK_KPIS: MarketKpi[] = [
+  { key: 'bist100', label: 'BIST100',   value: '—',      changeStr: '', up: true,  isLive: false },
+  { key: 'usd_try', label: 'USD/TRY',   value: '—',      changeStr: '', up: true,  isLive: false },
+  { key: 'eur_try', label: 'EUR/TRY',   value: '—',      changeStr: '', up: true,  isLive: false },
+  { key: 'brent',   label: 'Brent',     value: '—',      changeStr: '', up: true,  isLive: false },
+  { key: 'faiz',    label: 'TCMB Faiz', value: '%50,00', changeStr: '', up: false, isLive: false },
 ];
 
 function isMarketOpen() {
-  const now = new Date();
-  const day = now.getDay();
+  const now  = new Date();
+  const day  = now.getDay();
   const mins = now.getHours() * 60 + now.getMinutes();
   return day >= 1 && day <= 5 && mins >= 600 && mins < 1090;
 }
 
 export default function TopBar() {
-  const [time, setTime] = useState('');
-  const [date, setDate] = useState('');
-  const [open, setOpen] = useState(false);
+  const [time, setTime]         = useState('');
+  const [date, setDate]         = useState('');
+  const [open, setOpen]         = useState(false);
+  const [kpis, setKpis]         = useState<MarketKpi[]>(FALLBACK_KPIS);
+  const [mktSource, setMktSource] = useState<'live' | 'partial' | 'mock'>('mock');
 
+  // Clock tick
   useEffect(() => {
     const update = () => {
       const now = new Date();
@@ -40,6 +38,24 @@ export default function TopBar() {
     const iv = setInterval(update, 1000);
     return () => clearInterval(iv);
   }, []);
+
+  // Market KPI fetch — 60s polling
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const d = await (await fetch('/api/market')).json();
+        if (Array.isArray(d.kpis) && d.kpis.length > 0) {
+          setKpis(d.kpis);
+          setMktSource(d.source ?? 'mock');
+        }
+      } catch { /* keep fallback */ }
+    };
+    load();
+    const iv = setInterval(load, 60_000);
+    return () => clearInterval(iv);
+  }, []);
+
+  const allMock = mktSource === 'mock';
 
   return (
     <div className="top-bar" style={{ height: 64 }}>
@@ -78,26 +94,58 @@ export default function TopBar() {
           }} />
           Borsa {open ? 'Açık' : 'Kapalı'}
         </span>
+        {/* Data source badge */}
+        {allMock ? (
+          <span style={{
+            fontSize: 9, fontWeight: 600, letterSpacing: 0.5,
+            padding: '2px 6px', borderRadius: 3,
+            background: '#DBEAFE', color: '#1D4ED8', border: '1px solid #BFDBFE',
+          }}>
+            DEMO VERİ
+          </span>
+        ) : mktSource === 'partial' ? (
+          <span style={{
+            fontSize: 9, fontWeight: 600, letterSpacing: 0.5,
+            padding: '2px 6px', borderRadius: 3,
+            background: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A',
+          }}>
+            KISMİ CANLI
+          </span>
+        ) : (
+          <span style={{
+            fontSize: 9, fontWeight: 600, letterSpacing: 0.5,
+            padding: '2px 6px', borderRadius: 3,
+            background: '#DCFCE7', color: '#166534', border: '1px solid #86EFAC',
+          }}>
+            CANLI
+          </span>
+        )}
       </div>
 
       {/* KPI items */}
       <div style={{ display: 'flex', flex: 1, height: '100%', overflow: 'hidden' }}>
-        {KPI_ITEMS.map((item) => (
-          <div key={item.label} style={{
+        {kpis.map((item) => (
+          <div key={item.key} style={{
             padding: '0 20px', height: '100%', flexShrink: 0,
             display: 'flex', flexDirection: 'column', justifyContent: 'center',
             borderRight: '1px solid var(--border)',
+            opacity: item.isLive ? 1 : 0.7,
           }}>
-            <div style={{ fontSize: 11, color: 'var(--text-faint)', fontWeight: 500, marginBottom: 1 }}>
-              {item.label}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 1 }}>
+              <span style={{ fontSize: 11, color: 'var(--text-faint)', fontWeight: 500 }}>
+                {item.label}
+              </span>
+              {!item.isLive && (
+                <span style={{ fontSize: 8, color: '#9CA3AF', fontStyle: 'italic' }}>demo</span>
+              )}
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
               <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--cream)', lineHeight: 1 }}>
                 {item.value}
               </span>
-              {item.change && (
+              {item.changeStr && (
                 <span style={{ fontSize: 12, fontWeight: 600, color: item.up ? 'var(--green)' : 'var(--red)' }}>
-                  {item.change}
+                  {item.changeStr}
                 </span>
               )}
             </div>

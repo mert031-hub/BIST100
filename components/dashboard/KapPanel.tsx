@@ -62,31 +62,46 @@ function Score({ score }: { score: number }) {
 }
 
 export default function KapPanel() {
-  const [disclosures, setDisclosures] = useState<KapDisclosure[]>([]);
-  const [source, setSource] = useState<'live' | 'mock'>('mock');
-  const [loading, setLoading] = useState(true);
-  const [catFilter, setCatFilter] = useState<KapCategory | 'ALL'>('ALL');
+  const {
+    selectedSources, addSource, removeSource,
+    kapFilter, setKapFilter, setKapCounts,
+    kapPrefetchData, setKapPrefetchData,
+  } = useDashboardStore();
 
-  const { selectedSources, addSource, removeSource, kapFilter, setKapFilter, setKapCounts } = useDashboardStore();
+  // Initialise from prefetch if available — no loading spinner needed
+  const [disclosures, setDisclosures] = useState<KapDisclosure[]>(kapPrefetchData?.disclosures ?? []);
+  const [source, setSource]           = useState<string>(kapPrefetchData?.source ?? 'mock');
+  const [loading, setLoading]         = useState(!kapPrefetchData);
+  const [lastFetch, setLastFetch]     = useState('');
+  const [catFilter, setCatFilter]     = useState<KapCategory | 'ALL'>('ALL');
 
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch('/api/kap');
-        const d = await res.json();
-        const discs = d.disclosures ?? [];
+        const res  = await fetch('/api/kap');
+        const d    = await res.json();
+        const discs: KapDisclosure[] = d.disclosures ?? [];
         setDisclosures(discs);
-        setSource(d.source);
-        // Build KAP counts per company and push to store
+        setSource(d.source ?? 'mock');
+        setLastFetch(new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }));
+        // Update store so other panels (LeftPanel leaderboard) see fresh counts
+        setKapPrefetchData({ disclosures: discs, source: d.source ?? 'mock' });
         const counts: Record<string, number> = {};
         for (const disc of discs) { counts[disc.companyCode] = (counts[disc.companyCode] ?? 0) + 1; }
         setKapCounts(counts);
-      } catch { /* silent */ }
+      } catch { /* keep previous state */ }
       finally { setLoading(false); }
     }
-    load();
-    const iv = setInterval(load, 120000);
+    // Skip initial fetch if prefetch data is already loaded
+    if (!kapPrefetchData) {
+      load();
+    } else {
+      setLoading(false);
+    }
+    // Always set up polling for refresh
+    const iv = setInterval(load, 120_000);
     return () => clearInterval(iv);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const filtered = disclosures.filter((d) => {
@@ -103,15 +118,23 @@ export default function KapPanel() {
     <div className="panel">
       {/* Header */}
       <div className="ph">
-        <span className={`dot ${source === 'live' ? 'dot-live' : 'dot-mock'}`} />
+        <span className={`dot ${source === 'live-rss' || source === 'live-json' ? 'dot-live' : 'dot-mock'}`} />
         <span className="ph-title">KAP BİLDİRİMLERİ</span>
         {source === 'mock' && (
           <span style={{
             fontSize: 10, fontWeight: 600, padding: '1px 7px', borderRadius: 3,
             background: '#DBEAFE', color: '#1D4ED8', border: '1px solid #BFDBFE',
-          }}>DEMO</span>
+          }}>DEMO VERİ</span>
         )}
-        <span className="ph-right">{filtered.length} KAYIT</span>
+        {(source === 'live-rss' || source === 'live-json') && (
+          <span style={{
+            fontSize: 9, fontWeight: 600, padding: '1px 6px', borderRadius: 3,
+            background: '#DCFCE7', color: '#166534', border: '1px solid #86EFAC',
+          }}>CANLI</span>
+        )}
+        <span className="ph-right">
+          {lastFetch ? `↻ ${lastFetch} · ` : ''}{filtered.length} KAYIT
+        </span>
       </div>
 
       {/* Category filter chips */}

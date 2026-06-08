@@ -2,9 +2,21 @@ import { NextResponse } from 'next/server';
 import { MOCK_STOCKS } from '@/data/mock/stocks';
 import type { Stock } from '@/types/stock';
 import { withTimeout } from '@/lib/fetch-helpers';
+import { makeRouteCache } from '@/lib/route-cache';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+
+const STOCKS_CACHE_TTL = 60_000; // 60 seconds
+
+interface StocksResponse {
+  stocks: Stock[];
+  source: 'live' | 'partial' | 'mock';
+  liveCount: number;
+  totalCount: number;
+  lastFetch: string;
+}
+const cache = makeRouteCache<StocksResponse>(STOCKS_CACHE_TTL);
 
 /** Per-symbol quota timeout (ms). Short so blocked envs fail fast. */
 const QUOTE_TIMEOUT = 5000;
@@ -51,6 +63,9 @@ async function fetchQuote(yf: any, mock: Stock): Promise<{ stock: Stock; live: b
 }
 
 export async function GET() {
+  const cached = cache.get();
+  if (cached) return NextResponse.json(cached);
+
   try {
     // yahoo-finance2 v3 requires explicit instantiation
     const { default: YahooFinance } = await import('yahoo-finance2');
@@ -59,26 +74,28 @@ export async function GET() {
 
     const results = await Promise.all(MOCK_STOCKS.map((mock) => fetchQuote(yf, mock)));
 
-    const stocks = results.map((r) => r.stock);
+    const stocks    = results.map((r) => r.stock);
     const liveCount = results.filter((r) => r.live).length;
-    const source =
+    const source: StocksResponse['source'] =
       liveCount === MOCK_STOCKS.length ? 'live' :
       liveCount > 0 ? 'partial' : 'mock';
 
-    return NextResponse.json({
-      stocks,
-      source,
-      liveCount,
+    const response: StocksResponse = {
+      stocks, source, liveCount,
       totalCount: MOCK_STOCKS.length,
       lastFetch: new Date().toISOString(),
-    });
+    };
+    cache.set(response);
+    return NextResponse.json(response);
   } catch {
-    return NextResponse.json({
+    const response: StocksResponse = {
       stocks: MOCK_STOCKS.map((s) => ({ ...s, lastUpdated: new Date().toISOString() })),
       source: 'mock',
       liveCount: 0,
       totalCount: MOCK_STOCKS.length,
       lastFetch: new Date().toISOString(),
-    });
+    };
+    cache.set(response);
+    return NextResponse.json(response);
   }
 }

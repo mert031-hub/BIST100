@@ -7,10 +7,12 @@ import BrokerSummary from '@/components/dashboard/BrokerSummary';
 import StatusBar from '@/components/dashboard/StatusBar';
 import TopBar from '@/components/dashboard/TopBar';
 import NavBar from '@/components/dashboard/NavBar';
+import DataPrefetcher from '@/components/dashboard/DataPrefetcher';
 
 export default function Home() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', minWidth: 1024, background: 'var(--bg)' }}>
+      <DataPrefetcher />
       <TopBar />
       <NavBar />
 
