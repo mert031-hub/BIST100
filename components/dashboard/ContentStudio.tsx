@@ -376,9 +376,10 @@ function EmptyState({ activePlatform }: { activePlatform: ContentPlatform }) {
 /* ─── Main component ────────────────────────────────────────────────────── */
 export default function ContentStudio() {
   const {
-    selectedSources, removeSource, clearSources,
+    selectedSources, removeSource, clearSources, addSource,
     activePlatform, setActivePlatform,
     generatedContent, generateForPlatform,
+    topNewsItems, topKapItems,
   } = useDashboardStore();
 
   const [editedTitle,   setEditedTitle]   = useState('');
@@ -415,6 +416,34 @@ export default function ContentStudio() {
     if (selectedSources.length === 0) return;
     setIsGenerating(true);
     generateForPlatform();
+  }
+
+  function handleAutoFillDaily() {
+    clearSources();
+    setActiveTemplate('DAILY');
+    const combined = [
+      ...topNewsItems.map((n) => ({
+        id: n.id, type: 'NEWS' as const,
+        title: n.title, score: n.importanceScore,
+        date: n.date, url: n.sourceUrl,
+      })),
+      ...topKapItems.map((k) => ({
+        id: k.id, type: 'KAP' as const,
+        title: k.title, score: k.importanceScore,
+        date: k.date, url: k.sourceUrl,
+      })),
+    ].sort((a, b) => b.score - a.score).slice(0, 5);
+    for (const item of combined) {
+      addSource({ id: item.id, type: item.type, title: item.title, date: item.date, url: item.url });
+    }
+  }
+
+  function handleAutoFillKap() {
+    clearSources();
+    setActiveTemplate('FLASH');
+    for (const k of topKapItems.slice(0, 3)) {
+      addSource({ id: k.id, type: 'KAP', title: k.title, date: k.date, url: k.sourceUrl });
+    }
   }
 
   function handleCopy() {
@@ -474,6 +503,39 @@ export default function ContentStudio() {
             {p.icon} {p.label}
           </button>
         ))}
+      </div>
+
+      {/* Auto-fill shortcuts */}
+      <div style={{ padding: '5px 8px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+        <div style={{ fontSize: 7, color: 'var(--text-dim)', letterSpacing: 1.5, marginBottom: 5 }}>HIZLI DOLDUR</div>
+        <div style={{ display: 'flex', gap: 4 }}>
+          <button
+            onClick={handleAutoFillDaily}
+            disabled={topNewsItems.length === 0 && topKapItems.length === 0}
+            style={{
+              flex: 1, padding: '5px 4px', fontSize: 10, fontWeight: 500,
+              background: 'var(--bg-3)', border: '1px solid var(--border-2)',
+              color: 'var(--text-dim)', cursor: 'pointer', fontFamily: 'inherit',
+              borderRadius: 4, lineHeight: 1.4, textAlign: 'center', transition: 'all .15s',
+            }}
+            title="En yüksek skorlu 5 haber+KAP bildirimiyle doldur"
+          >
+            📊 Günlük Özet
+          </button>
+          <button
+            onClick={handleAutoFillKap}
+            disabled={topKapItems.length === 0}
+            style={{
+              flex: 1, padding: '5px 4px', fontSize: 10, fontWeight: 500,
+              background: 'var(--bg-3)', border: '1px solid var(--border-2)',
+              color: 'var(--text-dim)', cursor: 'pointer', fontFamily: 'inherit',
+              borderRadius: 4, lineHeight: 1.4, textAlign: 'center', transition: 'all .15s',
+            }}
+            title="En önemli 3 KAP bildirimiyle doldur"
+          >
+            📋 KAP Özeti
+          </button>
+        </div>
       </div>
 
       {/* Templates */}

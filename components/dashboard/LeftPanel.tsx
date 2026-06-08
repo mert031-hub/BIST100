@@ -1,11 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useDashboardStore } from '@/store/dashboard-store';
-import { COMPANIES } from '@/data/companies';
+import { COMPANIES, PRIORITY_COMPANIES } from '@/data/companies';
 import StockPanel from './StockPanel';
 import SourceHealthBar from './SourceHealthBar';
-import { Stock } from '@/types/stock';
 
 type LeftTab = 'RADAR' | 'PRICES';
 
@@ -38,22 +37,32 @@ function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }
 
 export default function LeftPanel() {
   const [tab, setTab] = useState<LeftTab>('RADAR');
-  const { companyCounts, kapCounts } = useDashboardStore();
+  const { topNewsItems, kapCounts } = useDashboardStore();
   const [lastUpdate, setLastUpdate] = useState('');
-  const [isMock, setIsMock] = useState(true);
 
   useEffect(() => {
     setLastUpdate(new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }));
-  }, [companyCounts]);
+  }, [topNewsItems, kapCounts]);
 
-  /* Top 5 company mention counts */
-  const topCompanies = Object.entries(companyCounts)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 6);
+  /* Weighted company score: news importanceScore/10 per mention + kapCounts * 3 */
+  const topCompanies = useMemo(() => {
+    const scores: Record<string, number> = {};
+    for (const item of topNewsItems) {
+      for (const code of item.relatedCompanies) {
+        scores[code] = (scores[code] ?? 0) + item.importanceScore / 10;
+      }
+    }
+    for (const [code, count] of Object.entries(kapCounts)) {
+      scores[code] = (scores[code] ?? 0) + count * 3;
+    }
+    return Object.entries(scores)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 6);
+  }, [topNewsItems, kapCounts]);
 
-  const maxCount = topCompanies[0]?.[1] ?? 1;
+  const maxScore = topCompanies[0]?.[1] ?? 1;
 
-  /* Top 5 KAP disclosure counts */
+  /* Top KAP disclosure counts */
   const topKap = Object.entries(kapCounts)
     .sort(([, a], [, b]) => b - a)
     .slice(0, 4);
@@ -97,17 +106,18 @@ export default function LeftPanel() {
         {tab === 'RADAR' ? (
           <>
             {/* EN ÇOK KONUŞULAN HİSSELER */}
-            <SectionHeader title="En Çok Konuşulan Hisseler" subtitle="Son 24 saat · Haber bazlı" />
+            <SectionHeader title="En Çok Konuşulan Hisseler" subtitle="Haber + KAP ağırlıklı skor" />
             {topCompanies.length === 0 ? (
               <div style={{ padding: '12px 16px', fontSize: 12, color: 'var(--text-faint)' }}>
                 Haberler yüklendikten sonra görünür.
               </div>
             ) : (
               <div>
-                {topCompanies.map(([code, count], rank) => {
-                  const meta = COMPANIES[code];
-                  const pct  = Math.round((count / maxCount) * 100);
-                  const nameColor = rank === 0 ? 'var(--amber)' : rank < 3 ? 'var(--cream)' : 'var(--text)';
+                {topCompanies.map(([code, score], rank) => {
+                  const meta       = COMPANIES[code];
+                  const isPriority = PRIORITY_COMPANIES.has(code);
+                  const pct        = Math.round((score / maxScore) * 100);
+                  const nameColor  = rank === 0 ? 'var(--amber)' : isPriority ? 'var(--cream)' : 'var(--text)';
                   return (
                     <div key={code} style={{ padding: '9px 16px', borderBottom: '1px solid var(--border)' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
@@ -123,14 +133,14 @@ export default function LeftPanel() {
                           </span>
                         )}
                         <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-dim)', flexShrink: 0 }}>
-                          {count} haber
+                          {score.toFixed(1)}p
                         </span>
                       </div>
                       <div style={{ height: 4, background: 'var(--border)', borderRadius: 2, marginLeft: 22 }}>
                         <div style={{
                           height: '100%', borderRadius: 2,
                           width: `${pct}%`,
-                          background: rank === 0 ? 'var(--amber)' : rank < 3 ? 'var(--amber-dim)' : 'var(--border-3)',
+                          background: rank === 0 ? 'var(--amber)' : isPriority ? 'var(--amber-dim)' : 'var(--border-3)',
                           transition: 'width .3s ease',
                         }} />
                       </div>

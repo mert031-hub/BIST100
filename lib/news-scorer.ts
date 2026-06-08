@@ -1,4 +1,5 @@
 import type { NewsCategory } from '@/types/news';
+import { PRIORITY_COMPANIES } from '@/data/companies';
 
 // ─── Finance relevance filter ─────────────────────────────────────────────────
 
@@ -11,6 +12,8 @@ const BLOCKED_PATTERNS = [
   'magazin', 'ünlüler', 'oyuncu tutukl', 'şarkıcı',
   'trafik kazasında', 'yangında hayat', 'cinayete kurban',
   'okul kayıt', ' lgs ', ' yks ',
+  'astroloji', 'burç yorumu', 'tarihte bugün', 'günün fotoğrafı',
+  'seçim kampanya', 'siyasi parti mitingi', 'milletvekili seçim',
 ];
 
 const FINANCE_PATTERNS = [
@@ -27,10 +30,13 @@ const FINANCE_PATTERNS = [
   'ihale kazandı', 'sözleşme imzaladı', 'sipariş aldı', 'ihracat rekoru',
   'aselsan', 'türk hava yol', 'tüpraş', 'tupraş', 'akbank',
   'bim market', 'turkcell', 'ereğli demir', 'erdemir', 'şişecam', 'tofaş', 'migros',
+  'yapı kredi', 'koç holding', 'sabancı', 'pegasus', 'ford otosan',
   'bankacılık sektör', 'savunma sanayii', 'enerji sektör',
   'kamuoyuna açıkl', 'özel durum açıkl', 'kap bildirimi',
   'hedef fiyat', 'yatırım tavsiy', 'analist raporu',
   'ekonomi', 'finansal', 'mali ', 'sermaye piyasa', 'yatırım fonu',
+  'kredi notu', 'moody', 'fitch', "s&p", 'rating',
+  'geri alım', 'sermaye artırım', 'bedelli', 'bedelsiz',
 ];
 
 export function isFinanceRelevant(title: string, description: string): boolean {
@@ -93,35 +99,66 @@ const CATEGORY_BASE: Record<NewsCategory, number> = {
   ENFLASYON:  90,
   FAIZ:       88,
   KUR:        80,
-  SAVUNMA:    78,
-  BANKACILIK: 75,
-  ENERJI:     74,
+  SAVUNMA:    80,  // raised — defense is high content priority
+  BANKACILIK: 76,
+  ENERJI:     75,
   BORSA:      72,
-  SIRKET:     70,
+  SIRKET:     75,  // raised from 70 — company news is core content
   JEOPOLITIK: 68,
   GENEL:      40,
 };
 
+// High-signal words — company actions and financial events
 const BOOST_WORDS = [
+  // Company actions (very high signal for content)
+  'sözleşme imzaladı', 'ihale kazandı', 'sipariş aldı', 'anlaşma imzaladı',
+  'birleşme', 'satın alma', 'devralma', 'iş birliği anlaşması',
+  // Financial events
+  'kâr açıkladı', 'zarar açıkladı', 'gelir açıkladı', 'finansal sonuç',
+  'temettü', 'kâr payı', 'temettü kararı',
+  'geri alım', 'hisse geri alım',
+  'sermaye artırım', 'bedelli', 'bedelsiz',
+  'hedef fiyat', 'hedef fiyat revize', 'tavsiye değiş',
+  'halka arz',
+  // Scale indicators
+  'milyar dolar', 'milyar tl', 'milyon dolar',
   'rekor', 'tarihi', 'ilk kez', 'sürpriz karar',
-  'sözleşme imzaladı', 'ihale kazandı', 'birleşme', 'satın alma',
-  'kâr açıkladı', 'zarar açıkladı', 'milyar dolar', 'milyar tl',
 ];
 
+// Low-signal words — opinion / commentary / soft news
 const PENALTY_WORDS = [
-  'rutin toplantı', 'olağan', 'basın toplantısı', 'sunum yaptı', 'sempozyum',
+  'röportaj', 'söyleşi', 'köşe yazısı', 'köşe yazarı',
+  'genel değerlendirme', 'görünüm raporu', 'yıl sonu beklentisi',
+  'rutin toplantı', 'olağan toplantı', 'basın toplantısı',
+  'sempozyum', 'panelde konuştu', 'sunum yaptı',
 ];
 
+/**
+ * Score a news item from 0–100.
+ *
+ * @param relatedCompanies — BIST codes matched in title/description.
+ *   If any are in PRIORITY_COMPANIES, the item gets a +10 boost.
+ *   This ensures ASELS/THYAO/TUPRS etc. surface above generic economy news.
+ */
 export function scoreNews(
   title: string,
   description: string,
   category: NewsCategory,
   dateIso: string,
+  relatedCompanies: string[] = [],
 ): number {
   let s = CATEGORY_BASE[category] ?? 40;
   s += freshnessBonus(dateIso);
+
   const combined = (title + ' ' + description).toLowerCase();
+
   for (const w of BOOST_WORDS)   if (combined.includes(w)) s = Math.min(100, s + 8);
   for (const w of PENALTY_WORDS) if (combined.includes(w)) s = Math.max(10,  s - 15);
+
+  // Priority company boost — these companies are the content focus
+  if (relatedCompanies.some((c) => PRIORITY_COMPANIES.has(c))) {
+    s = Math.min(100, s + 10);
+  }
+
   return Math.round(Math.min(100, Math.max(0, s)));
 }

@@ -99,9 +99,63 @@ export const COMPANIES: Record<string, { name: string; fullName: string; sector:
       'migros ticaret', 'migros a.ş',
     ],
   },
+  YKBNK: {
+    name: 'YAPI KREDİ',
+    fullName: 'Yapı ve Kredi Bankası A.Ş.',
+    sector: 'Bankacılık',
+    keywords: [
+      'yapı kredi', 'yapi kredi', 'ykbnk',
+      'yapı kredi bankası', 'yapıkredi',
+    ],
+  },
+  KCHOL: {
+    name: 'KOÇ HOLDİNG',
+    fullName: 'Koç Holding A.Ş.',
+    sector: 'Holding',
+    keywords: [
+      'koç holding', 'koc holding', 'kchol',
+      'koç grubu', 'koç şirketleri',
+    ],
+  },
+  SAHOL: {
+    name: 'SABANCI HOLDİNG',
+    fullName: 'Hacı Ömer Sabancı Holding A.Ş.',
+    sector: 'Holding',
+    keywords: [
+      'sabancı holding', 'sabanci holding', 'sahol',
+      'sabancı grubu', 'sabancı şirketleri',
+    ],
+  },
+  PGSUS: {
+    name: 'PEGASUS',
+    fullName: 'Pegasus Hava Taşımacılığı A.Ş.',
+    sector: 'Havacılık',
+    keywords: [
+      'pegasus', 'pgsus',
+      'pegasus hava', 'pegasus airlines',
+      'pegasus havayolları',
+    ],
+  },
+  FROTO: {
+    name: 'FORD OTOSAN',
+    fullName: 'Ford Otomotiv Sanayi A.Ş.',
+    sector: 'Otomotiv',
+    keywords: [
+      'ford otosan', 'ford otomotiv', 'froto',
+      'ford türkiye',
+    ],
+  },
 };
+
+/** BIST100 high-priority companies for content focus */
+export const PRIORITY_COMPANIES = new Set([
+  'ASELS', 'THYAO', 'TUPRS', 'AKBNK', 'BIMAS',
+  'EREGL', 'SISE',  'TCELL', 'YKBNK', 'KCHOL',
+  'SAHOL', 'PGSUS', 'FROTO', 'TOASO',
+]);
 
 export const TRACKED_SYMBOLS = [
   'ASELS.IS', 'THYAO.IS', 'TUPRS.IS', 'BIMAS.IS', 'AKBNK.IS',
   'TCELL.IS', 'EREGL.IS', 'SISE.IS',  'TOASO.IS', 'MGROS.IS',
+  'YKBNK.IS', 'KCHOL.IS', 'SAHOL.IS', 'PGSUS.IS', 'FROTO.IS',
 ];

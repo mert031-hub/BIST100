@@ -128,26 +128,31 @@ export default function NewsPanel() {
   const [activeTab, setActiveTab]   = useState<TabKey>('HOT');
   const [only24h, setOnly24h]       = useState(true);
 
-  const { selectedSources, addSource, removeSource, newsFilter, setNewsFilter, setCompanyCounts } =
-    useDashboardStore();
+  const {
+    selectedSources, addSource, removeSource,
+    newsFilter, setNewsFilter, setCompanyCounts, setTopNewsItems,
+  } = useDashboardStore();
 
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch('/api/news');
-        const d   = await res.json();
-        setItems(d.items ?? []);
+        const res   = await fetch('/api/news');
+        const d     = await res.json();
+        const items: NewsItem[] = d.items ?? [];
+        setItems(items);
         setSource(d.source ?? 'mock');
         setOkCount(d.okCount ?? 0);
         setFeedStatus(d.feedStatus ?? []);
         setCompanyCounts(d.companyCounts ?? {});
+        // Share top items with OverviewPanel and ContentStudio
+        setTopNewsItems(items.slice(0, 20));
       } catch { /* keep previous state */ }
       finally { setLoading(false); }
     }
     load();
     const iv = setInterval(load, 180_000);
     return () => clearInterval(iv);
-  }, [setCompanyCounts]);
+  }, [setCompanyCounts, setTopNewsItems]);
 
   // KRİTİK: high score + fresh (<60 min)
   const critical = items.filter((i) => i.importanceScore >= 80 && isFresh(i.date));

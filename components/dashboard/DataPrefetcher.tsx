@@ -9,7 +9,7 @@ import { useDashboardStore } from '@/store/dashboard-store';
  * the LeftPanel leaderboard before the user visits the KAP tab.
  */
 export default function DataPrefetcher() {
-  const { setKapPrefetchData, setKapCounts } = useDashboardStore();
+  const { setKapPrefetchData, setKapCounts, setTopKapItems } = useDashboardStore();
 
   useEffect(() => {
     const load = async () => {
@@ -19,6 +19,11 @@ export default function DataPrefetcher() {
         const disclosures = d.disclosures ?? [];
 
         setKapPrefetchData({ disclosures, source: d.source ?? 'mock' });
+
+        // Top KAP items for OverviewPanel and ContentStudio
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const sorted = [...disclosures].sort((a: any, b: any) => (b.importanceScore ?? 0) - (a.importanceScore ?? 0));
+        setTopKapItems(sorted.slice(0, 10));
 
         // Build company → count map for LeftPanel leaderboard
         const counts: Record<string, number> = {};
@@ -32,7 +37,7 @@ export default function DataPrefetcher() {
     };
 
     load();
-  }, [setKapPrefetchData, setKapCounts]);
+  }, [setKapPrefetchData, setKapCounts, setTopKapItems]);
 
   return null;
 }

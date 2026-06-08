@@ -4,8 +4,9 @@ import { create } from 'zustand';
 import { ContentSource, ContentPlatform, GeneratedContent } from '@/types/content';
 import { generateContent } from '@/lib/content-generator';
 import type { KapDisclosure } from '@/types/kap';
+import type { NewsItem } from '@/types/news';
 
-export type ActiveView = 'news' | 'kap' | 'brokers' | 'tcmb';
+export type ActiveView = 'overview' | 'news' | 'kap' | 'brokers' | 'tcmb';
 
 interface DashboardStore {
   selectedSources: ContentSource[];
@@ -39,6 +40,14 @@ interface DashboardStore {
   /** KAP data pre-fetched on page load — so KAP tab opens instantly */
   kapPrefetchData: { disclosures: KapDisclosure[]; source: string } | null;
   setKapPrefetchData: (data: { disclosures: KapDisclosure[]; source: string }) => void;
+
+  /** Top news items by score — shared with ContentStudio and OverviewPanel */
+  topNewsItems: NewsItem[];
+  setTopNewsItems: (items: NewsItem[]) => void;
+
+  /** Top KAP disclosures by score — shared with ContentStudio and OverviewPanel */
+  topKapItems: KapDisclosure[];
+  setTopKapItems: (items: KapDisclosure[]) => void;
 }
 
 export const useDashboardStore = create<DashboardStore>((set, get) => ({
@@ -81,4 +90,10 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
 
   kapPrefetchData: null,
   setKapPrefetchData: (data) => set({ kapPrefetchData: data }),
+
+  topNewsItems: [],
+  setTopNewsItems: (items) => set({ topNewsItems: items }),
+
+  topKapItems: [],
+  setTopKapItems: (items) => set({ topKapItems: items }),
 }));

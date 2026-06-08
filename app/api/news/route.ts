@@ -89,7 +89,7 @@ async function parseFeed(
           sourceUrl: item.link ?? feed.url,
           category,
           relatedCompanies: companies,
-          importanceScore: scoreNews(title, description, category, dateIso),
+          importanceScore: scoreNews(title, description, category, dateIso, companies),
         };
       })
       .filter((i): i is NewsItem => i !== null);

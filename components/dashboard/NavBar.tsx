@@ -5,7 +5,7 @@ import { useDashboardStore, ActiveView } from '@/store/dashboard-store';
 type NavTab = { label: string; view: ActiveView; disabled?: boolean };
 
 const TABS: NavTab[] = [
-  { label: 'Genel Bakış',    view: 'news' },
+  { label: 'Genel Bakış',    view: 'overview' },
   { label: 'Haberler',       view: 'news' },
   { label: 'KAP',            view: 'kap' },
   { label: 'Kurum Radarı',   view: 'brokers' },
@@ -25,9 +25,7 @@ export default function NavBar() {
       paddingLeft: 8,
     }}>
       {TABS.map((tab, i) => {
-        const isActive = !tab.disabled && activeView === tab.view &&
-          /* only "Genel Bakış" (i=0) and "Haberler" (i=1) both activate on 'news'; show only i=0 highlighted */
-          !(i === 1 && tab.view === 'news');
+        const isActive = !tab.disabled && activeView === tab.view;
 
         return (
           <button
