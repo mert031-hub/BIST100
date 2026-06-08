@@ -91,16 +91,16 @@ export default function StockPanel() {
           const up = s.changePercent >= 0;
           return (
             <div key={s.symbol} className="ticker fi">
-              <span style={{ color: 'var(--amber-bright)', fontWeight: 'bold', fontSize: 11 }}>
+              <span style={{ color: 'var(--amber)', fontWeight: 700, fontSize: 13 }}>
                 {s.symbol.replace('.IS', '')}
               </span>
-              <span className="cream" style={{ textAlign: 'right', fontSize: 11 }}>
+              <span style={{ color: 'var(--cream)', textAlign: 'right', fontSize: 13, fontWeight: 600 }}>
                 {fmtPrice(s.price)}
               </span>
-              <span className={up ? 'up' : 'down'} style={{ textAlign: 'right', fontSize: 11 }}>
+              <span className={up ? 'up' : 'down'} style={{ textAlign: 'right', fontSize: 13, fontWeight: 600 }}>
                 {up ? '+' : ''}{s.changePercent.toFixed(2)}%
               </span>
-              <span className="dim" style={{ textAlign: 'right', fontSize: 10 }}>
+              <span style={{ color: 'var(--text-dim)', textAlign: 'right', fontSize: 12 }}>
                 {fmtVol(s.volume)}
               </span>
               <span style={{ textAlign: 'center' }}>

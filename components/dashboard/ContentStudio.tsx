@@ -488,17 +488,18 @@ export default function ContentStudio() {
                 onClick={() => {
                   setActiveTemplate(active ? null : t.id);
                   if (!active && suggestions.length > 0) {
-                    // pre-populate title with the first suggestion of this template
                     const s = buildSuggestions(selectedSources, t.id);
                     if (s[0] && !generatedContent) setEditedTitle(s[0]);
                   }
                 }}
                 style={{
-                  flex: 1, padding: '4px 4px', background: active ? 'var(--bg-3)' : 'transparent',
-                  border: active ? '1px solid var(--amber)' : '1px solid var(--border)',
+                  flex: 1, padding: '6px 4px',
+                  background: active ? '#FEF3C7' : 'var(--bg-3)',
+                  border: active ? '1px solid var(--amber)' : '1px solid var(--border-2)',
                   color: active ? 'var(--amber)' : 'var(--text-dim)',
-                  cursor: 'pointer', fontFamily: 'monospace',
-                  fontSize: 7, letterSpacing: 0.8, lineHeight: 1.5, textAlign: 'center',
+                  cursor: 'pointer', fontFamily: 'inherit',
+                  fontSize: 11, fontWeight: active ? 600 : 500,
+                  lineHeight: 1.4, textAlign: 'center', borderRadius: 4,
                   transition: 'all .15s',
                 }}
               >

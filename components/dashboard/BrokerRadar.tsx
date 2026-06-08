@@ -98,9 +98,10 @@ export default function BrokerRadar() {
         <span className={`dot ${source === 'live' ? 'dot-live' : 'dot-mock'}`} />
         <span className="ph-title">ARACI KURUM RADARI</span>
         {source === 'mock' && (
-          <span style={{ fontSize: 8, letterSpacing: 1,
-            color: 'var(--amber-dim)', background: 'rgba(200,168,75,0.08)',
-            border: '1px solid var(--amber-dim)', padding: '0 4px' }}>DEMO VERİ</span>
+          <span style={{
+            fontSize: 10, fontWeight: 600, padding: '1px 7px', borderRadius: 3,
+            background: '#DBEAFE', color: '#1D4ED8', border: '1px solid #BFDBFE',
+          }}>DEMO</span>
         )}
         <span className="ph-right">{filtered.length} RAPOR</span>
       </div>
@@ -217,21 +218,21 @@ export default function BrokerRadar() {
                 </div>
               )}
 
-              <div style={{ padding: '6px 8px 7px' }}>
+              <div style={{ padding: '10px 16px 10px' }}>
                 {/* Row 1: institution (hero) · time */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 2 }}>
-                  <span style={{ fontSize: 10, color: 'var(--cream)', fontWeight: 'bold', flex: 1,
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                  <span style={{ fontSize: 12, color: 'var(--text-dim)', fontWeight: 500, flex: 1,
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {r.institution}
                   </span>
-                  <span style={{ fontSize: 8, color: 'var(--text-dim)', flexShrink: 0 }}>
+                  <span style={{ fontSize: 11, color: 'var(--text-faint)', flexShrink: 0 }}>
                     {ageLabel(r.date)}
                   </span>
                 </div>
 
                 {/* Row 2: company code + report type + model portfolio badge */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6 }}>
-                  <span style={{ color: 'var(--amber-bright)', fontWeight: 'bold', fontSize: 13, flexShrink: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                  <span style={{ color: 'var(--amber)', fontWeight: 700, fontSize: 16, flexShrink: 0 }}>
                     {r.companyCode}
                   </span>
                   <span style={{ fontSize: 7, letterSpacing: 0.5, padding: '0 4px',
@@ -252,9 +253,10 @@ export default function BrokerRadar() {
                 {/* ── HERO: Target price change ── */}
                 {!isSector && r.newTargetPrice > 0 && (
                   <div style={{
-                    background: 'rgba(0,0,0,0.25)',
-                    border: `1px solid ${tpUp ? 'var(--green-dim)' : tpDown ? 'var(--red-dim)' : 'var(--border)'}`,
-                    padding: '6px 8px', marginBottom: 6,
+                    background: tpUp ? 'var(--green-dim)' : tpDown ? 'var(--red-dim)' : 'var(--bg-3)',
+                    border: `1px solid ${tpUp ? '#86EFAC' : tpDown ? '#FECACA' : 'var(--border-2)'}`,
+                    borderRadius: 6,
+                    padding: '8px 12px', marginBottom: 8,
                   }}>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                       {r.oldTargetPrice != null ? (

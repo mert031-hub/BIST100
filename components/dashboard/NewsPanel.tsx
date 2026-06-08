@@ -28,17 +28,17 @@ function isWithin24h(iso: string) { return Date.now() - new Date(iso).getTime() 
 // ─── Category colours ─────────────────────────────────────────────────────────
 
 const CAT_COLORS: Record<NewsCategory, string> = {
-  TCMB:       '#e8c86b',
-  ENFLASYON:  '#b84444',
-  FAIZ:       '#c8a84b',
-  KUR:        '#88aacc',
-  BORSA:      '#4aac44',
-  SIRKET:     '#ccc0a0',
-  JEOPOLITIK: '#c06060',
-  ENERJI:     '#cc9040',
-  SAVUNMA:    '#80a880',
-  BANKACILIK: '#9898cc',
-  GENEL:      '#5a5040',
+  TCMB:       '#D97706',
+  ENFLASYON:  '#DC2626',
+  FAIZ:       '#D97706',
+  KUR:        '#2563EB',
+  BORSA:      '#16A34A',
+  SIRKET:     '#374151',
+  JEOPOLITIK: '#DC2626',
+  ENERJI:     '#D97706',
+  SAVUNMA:    '#059669',
+  BANKACILIK: '#7C3AED',
+  GENEL:      '#9CA3AF',
 };
 
 // ─── Tab logic ────────────────────────────────────────────────────────────────
@@ -77,37 +77,40 @@ function CriticalCard({ item, selected, onToggle }: {
     <div
       onClick={onToggle}
       style={{
-        padding: '6px 8px',
-        background: selected ? 'rgba(200,168,75,0.10)' : 'rgba(200,168,75,0.04)',
-        border: `1px solid ${selected ? 'var(--amber)' : 'var(--amber-dim)'}`,
+        padding: '10px 12px',
+        background: selected ? '#FEF3C7' : 'var(--bg-2)',
+        border: `1px solid ${selected ? 'var(--amber)' : 'var(--border)'}`,
+        borderRadius: 8,
         cursor: 'pointer',
         flexShrink: 0,
-        minWidth: 176,
-        maxWidth: 230,
+        minWidth: 200,
+        maxWidth: 260,
         position: 'relative',
         overflow: 'hidden',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
       }}
     >
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1,
-        background: 'linear-gradient(90deg, transparent, var(--amber-dim), transparent)' }} />
-      <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3,
+        background: 'var(--amber)', borderRadius: '8px 8px 0 0' }} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
         <ScoreBadge score={item.importanceScore} />
         {item.relatedCompanies[0] && (
-          <span style={{ fontSize: 9, color: 'var(--amber)', fontWeight: 'bold' }}>
-            ${item.relatedCompanies[0]}
+          <span style={{ fontSize: 11, color: 'var(--amber)', fontWeight: 700 }}>
+            {item.relatedCompanies[0]}
           </span>
         )}
-        <span style={{ marginLeft: 'auto', fontSize: 8, color: 'var(--green)', fontWeight: 'bold' }}>
+        <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--green)', fontWeight: 600 }}>
           {ageLabel(item.date)}
         </span>
       </div>
       <div style={{
-        fontSize: 10, color: 'var(--cream)', lineHeight: 1.35,
+        fontSize: 13, color: 'var(--cream)', lineHeight: 1.4, fontWeight: 600,
         display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+        marginBottom: 4,
       }}>
         {item.title}
       </div>
-      <div style={{ fontSize: 8, color: 'var(--text-dim)', marginTop: 3 }}>{item.source}</div>
+      <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>{item.source}</div>
     </div>
   );
 }
@@ -162,10 +165,10 @@ export default function NewsPanel() {
   });
 
   const TABS: Array<{ key: TabKey; label: string }> = [
-    { key: 'ALL',     label: `TÜMÜ (${items.length})` },
-    { key: 'HOT',     label: '▲ SICAK' },
-    { key: 'COMPANY', label: 'ŞİRKET' },
-    { key: 'ECONOMY', label: 'EKONOMİ' },
+    { key: 'ALL',     label: `Tümü (${items.length})` },
+    { key: 'HOT',     label: '▲ Sıcak' },
+    { key: 'COMPANY', label: 'Şirket' },
+    { key: 'ECONOMY', label: 'Ekonomi' },
     { key: 'TCMB',    label: 'TCMB' },
   ];
 
@@ -179,11 +182,12 @@ export default function NewsPanel() {
       {/* Header */}
       <div className="ph">
         <span className={`dot ${dotStyle}`} style={partialSt} />
-        <span className="ph-title">EKONOMİ HABERLERİ</span>
+        <span className="ph-title">Haber Akışı</span>
         {source === 'mock' && (
-          <span style={{ fontSize: 8, color: 'var(--amber-dim)', letterSpacing: 1,
-            background: 'rgba(200,168,75,0.08)', border: '1px solid var(--amber-dim)',
-            padding: '0 4px' }}>DEMO VERİ</span>
+          <span style={{
+            fontSize: 10, fontWeight: 600, padding: '1px 7px', borderRadius: 3,
+            background: '#DBEAFE', color: '#1D4ED8', border: '1px solid #BFDBFE',
+          }}>DEMO</span>
         )}
         {source === 'partial' && (
           <span style={{ fontSize: 8, color: 'var(--amber)', letterSpacing: 1 }}>{okCount} KAYNAK</span>
@@ -195,24 +199,24 @@ export default function NewsPanel() {
       {critical.length > 0 && (
         <div style={{ flexShrink: 0, borderBottom: '1px solid var(--border)' }}>
           <div style={{
-            padding: '3px 8px',
-            background: 'rgba(200,168,75,0.06)',
+            padding: '10px 16px 6px',
             borderBottom: '1px solid var(--border)',
-            display: 'flex', alignItems: 'center', gap: 6,
+            display: 'flex', alignItems: 'center', gap: 8,
+            background: 'var(--bg-2)',
           }}>
             <div style={{
-              width: 5, height: 5, borderRadius: '50%',
-              background: 'var(--amber)', boxShadow: '0 0 5px var(--amber)',
+              width: 8, height: 8, borderRadius: '50%',
+              background: 'var(--amber)',
               animation: 'pulse 2s infinite', flexShrink: 0,
             }} />
-            <span style={{ fontSize: 8, letterSpacing: 2, color: 'var(--amber)', fontWeight: 'bold' }}>
-              KRİTİK GELİŞMELER
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--cream)' }}>
+              Kritik Gelişmeler
             </span>
-            <span style={{ fontSize: 8, color: 'var(--text-faint)' }}>
-              SON 1 SAAT · {critical.length} HABER
+            <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>
+              Son 1 saat · {critical.length} haber
             </span>
           </div>
-          <div style={{ display: 'flex', gap: 6, padding: '6px 8px', overflowX: 'auto' }}>
+          <div style={{ display: 'flex', gap: 10, padding: '10px 16px 12px', overflowX: 'auto' }}>
             {critical.map((item) => {
               const sel = selectedSources.some((s) => s.id === item.id);
               return (
@@ -246,12 +250,12 @@ export default function NewsPanel() {
           onClick={() => setOnly24h((v) => !v)}
           title={only24h ? 'Son 24 saat — tümünü görmek için tıkla' : 'Tüm haberler — 24sa için tıkla'}
           style={{
-            marginLeft: 'auto', padding: '0 8px', height: 28,
+            marginLeft: 'auto', padding: '0 12px', height: 40,
             background: 'transparent', border: 'none',
             borderLeft: '1px solid var(--border)',
             color: only24h ? 'var(--amber)' : 'var(--text-faint)',
-            cursor: 'pointer', fontFamily: 'monospace',
-            fontSize: 8, letterSpacing: 1, whiteSpace: 'nowrap', flexShrink: 0,
+            cursor: 'pointer', fontFamily: 'inherit',
+            fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0,
           }}
         >
           {only24h ? '24S ✓' : 'TÜMÜ'}
@@ -259,7 +263,7 @@ export default function NewsPanel() {
       </div>
 
       {/* Search + feed status */}
-      <div style={{ padding: '4px 8px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+      <div style={{ padding: '8px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
         <input
           className="t-input"
           placeholder="filtre: başlık, kategori, kaynak..."
@@ -314,25 +318,26 @@ export default function NewsPanel() {
               {isHigh && (
                 <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 2, background: 'var(--amber)' }} />
               )}
-              <div style={{ padding: '5px 8px 6px', paddingLeft: isHigh ? 10 : 8 }}>
+              <div style={{ padding: '10px 16px 10px', paddingLeft: isHigh ? 18 : 16 }}>
 
-                {/* Row 1: score · category · companies · time */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4 }}>
+                {/* Row 1: score · category · time */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
                   <ScoreBadge score={item.importanceScore} />
                   <span style={{
-                    fontSize: 8, color: cc, letterSpacing: 0.5,
-                    border: `1px solid ${cc}`, padding: '0 3px', opacity: 0.85, flexShrink: 0,
+                    fontSize: 10, color: cc, fontWeight: 600,
+                    background: `${cc}18`, border: `1px solid ${cc}40`,
+                    borderRadius: 3, padding: '1px 6px', flexShrink: 0,
                   }}>
                     {item.category}
                   </span>
                   {item.relatedCompanies.length > 0 && (
-                    <span style={{ fontSize: 9, color: 'var(--amber)', fontWeight: 'bold', letterSpacing: 0.5 }}>
-                      {item.relatedCompanies.map((c) => `$${c}`).join(' ')}
+                    <span style={{ fontSize: 11, color: 'var(--amber)', fontWeight: 700 }}>
+                      {item.relatedCompanies.slice(0, 2).join(' · ')}
                     </span>
                   )}
                   <span style={{
-                    marginLeft: 'auto', fontSize: 9, flexShrink: 0,
-                    color: ageColor(item.date), fontWeight: isFresh(item.date) ? 'bold' : 'normal',
+                    marginLeft: 'auto', fontSize: 11, flexShrink: 0,
+                    color: ageColor(item.date), fontWeight: isFresh(item.date) ? 700 : 500,
                   }}>
                     {ageLabel(item.date)}
                   </span>
@@ -340,17 +345,17 @@ export default function NewsPanel() {
 
                 {/* Title */}
                 <div style={{
-                  fontSize: isHigh ? 12 : 11,
-                  color: isHigh ? 'var(--cream)' : 'var(--text)',
-                  lineHeight: 1.4, marginBottom: 4,
-                  fontWeight: isHigh ? 'bold' : 'normal',
+                  fontSize: isHigh ? 14 : 13,
+                  color: 'var(--cream)',
+                  lineHeight: 1.4, marginBottom: 6,
+                  fontWeight: isHigh ? 700 : 500,
                 }}>
                   {item.title}
                 </div>
 
                 {/* Footer: source · link · studio */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 8, color: 'var(--text-dim)' }}>{item.source}</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>{item.source}</span>
                   <a
                     href={item.sourceUrl}
                     target="_blank"
@@ -358,16 +363,26 @@ export default function NewsPanel() {
                     className="src-link"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    ↗ KAYNAK
+                    ↗ Kaynak
                   </a>
                   {sel ? (
-                    <span style={{ marginLeft: 'auto', fontSize: 8, color: 'var(--amber)', letterSpacing: 0.5 }}>
-                      ✓ STÜDYO ✕
-                    </span>
+                    <button
+                      style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--amber)', fontWeight: 600,
+                        background: '#FEF3C7', border: '1px solid var(--amber-dim)', borderRadius: 4,
+                        padding: '2px 8px', cursor: 'pointer', fontFamily: 'inherit' }}
+                      onClick={(e) => { e.stopPropagation(); removeSource(item.id); }}
+                    >
+                      ✓ Stüdyo ✕
+                    </button>
                   ) : (
-                    <span style={{ marginLeft: 'auto', fontSize: 8, color: 'var(--text-faint)', letterSpacing: 0.5 }}>
-                      + EKLE
-                    </span>
+                    <button
+                      style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--green)', fontWeight: 600,
+                        background: 'var(--green-dim)', border: '1px solid #86EFAC', borderRadius: 4,
+                        padding: '2px 8px', cursor: 'pointer', fontFamily: 'inherit' }}
+                      onClick={(e) => { e.stopPropagation(); addSource({ type: 'NEWS', id: item.id, title: item.title, date: item.date, url: item.sourceUrl }); }}
+                    >
+                      + Ekle
+                    </button>
                   )}
                 </div>
               </div>

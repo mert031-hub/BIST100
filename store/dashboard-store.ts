@@ -4,6 +4,8 @@ import { create } from 'zustand';
 import { ContentSource, ContentPlatform, GeneratedContent } from '@/types/content';
 import { generateContent } from '@/lib/content-generator';
 
+export type ActiveView = 'news' | 'kap' | 'brokers' | 'tcmb';
+
 interface DashboardStore {
   selectedSources: ContentSource[];
   addSource: (source: ContentSource) => void;
@@ -15,6 +17,10 @@ interface DashboardStore {
   generatedContent: GeneratedContent | null;
   generateForPlatform: () => void;
 
+  activeView: ActiveView;
+  setActiveView: (view: ActiveView) => void;
+
+  /** @deprecated use activeView */
   activePanel: 'news' | 'kap' | 'brokers';
   setActivePanel: (panel: 'news' | 'kap' | 'brokers') => void;
 
@@ -23,9 +29,11 @@ interface DashboardStore {
   kapFilter: string;
   setKapFilter: (filter: string) => void;
 
-  // Company mention counts populated by NewsPanel after each fetch
   companyCounts: Record<string, number>;
   setCompanyCounts: (counts: Record<string, number>) => void;
+
+  kapCounts: Record<string, number>;
+  setKapCounts: (counts: Record<string, number>) => void;
 }
 
 export const useDashboardStore = create<DashboardStore>((set, get) => ({
@@ -37,9 +45,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
         : [...state.selectedSources, source],
     })),
   removeSource: (id) =>
-    set((state) => ({
-      selectedSources: state.selectedSources.filter((s) => s.id !== id),
-    })),
+    set((state) => ({ selectedSources: state.selectedSources.filter((s) => s.id !== id) })),
   clearSources: () => set({ selectedSources: [], generatedContent: null }),
 
   activePlatform: 'INSTAGRAM_POST',
@@ -51,6 +57,9 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
     set({ generatedContent: generateContent(activePlatform, selectedSources) });
   },
 
+  activeView: 'news',
+  setActiveView: (view) => set({ activeView: view }),
+
   activePanel: 'news',
   setActivePanel: (panel) => set({ activePanel: panel }),
 
@@ -61,4 +70,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
 
   companyCounts: {},
   setCompanyCounts: (counts) => set({ companyCounts: counts }),
+
+  kapCounts: {},
+  setKapCounts: (counts) => set({ kapCounts: counts }),
 }));

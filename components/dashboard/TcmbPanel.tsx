@@ -4,13 +4,13 @@ import { useEffect, useState } from 'react';
 import { TcmbIndicator } from '@/types/tcmb';
 
 const CAT_COLOR: Record<string, string> = {
-  FAIZ:      'var(--amber-bright)',
-  ENFLASYON: 'var(--red)',
-  KUR:       'var(--cream)',
-  REZERV:    'var(--green)',
-  DISTICARET:'var(--amber)',
-  ISTIHDAM:  'var(--text)',
-  URETIM:    'var(--text)',
+  FAIZ:      '#D97706',
+  ENFLASYON: '#DC2626',
+  KUR:       '#2563EB',
+  REZERV:    '#16A34A',
+  DISTICARET:'#D97706',
+  ISTIHDAM:  '#374151',
+  URETIM:    '#374151',
 };
 
 /* Indicators where "positive change" is actually bad */
@@ -52,11 +52,11 @@ export default function TcmbPanel() {
 
               return (
                 <div key={ind.key} className="tcmb-cell">
-                  <div style={{ fontSize: 8, color: 'var(--text-dim)', letterSpacing: 1, marginBottom: 2 }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-dim)', fontWeight: 500, marginBottom: 4 }}>
                     {ind.label}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
-                    <span style={{ fontSize: 13, color: CAT_COLOR[ind.category] ?? 'var(--cream)', fontWeight: 'bold' }}>
+                    <span style={{ fontSize: 16, color: CAT_COLOR[ind.category] ?? 'var(--cream)', fontWeight: 700 }}>
                       {typeof ind.value === 'number'
                         ? ind.value.toLocaleString('tr-TR', { maximumFractionDigits: 2 })
                         : ind.value}

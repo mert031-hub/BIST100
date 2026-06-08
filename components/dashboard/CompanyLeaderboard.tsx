@@ -14,9 +14,8 @@ export default function CompanyLeaderboard() {
 
   if (sorted.length === 0) {
     return (
-      <div style={{ padding: '10px 8px', fontSize: 9, color: 'var(--text-faint)',
-        letterSpacing: 1, lineHeight: 1.6 }}>
-        HABER YÜKLENDİKTEN<br />SONRA GÖRÜNÜR
+      <div style={{ padding: '12px 16px', fontSize: 12, color: 'var(--text-faint)', lineHeight: 1.6 }}>
+        Haberler yüklendikten sonra görünür.
       </div>
     );
   }
@@ -28,37 +27,33 @@ export default function CompanyLeaderboard() {
         const barPct   = Math.round((count / maxCount) * 100);
         const barColor =
           rank === 0 ? 'var(--amber)' :
-          rank  <  3 ? 'var(--amber-dim)' :
+          rank  <  3 ? '#FDE68A' :
           count >= 3 ? 'var(--border-3)' : 'var(--border-2)';
         const codeColor =
-          rank === 0 ? 'var(--amber-bright)' :
-          rank === 1 ? 'var(--amber)' :
-          'var(--text)';
+          rank === 0 ? 'var(--amber)' :
+          rank === 1 ? 'var(--amber-bright)' :
+          'var(--cream)';
 
         return (
-          <div key={code} style={{ padding: '5px 8px 4px', borderBottom: '1px solid var(--border)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-              <span style={{ fontSize: 8, color: 'var(--text-faint)', minWidth: 12, textAlign: 'right' }}>
+          <div key={code} style={{ padding: '9px 16px', borderBottom: '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
+              <span style={{ fontSize: 11, color: 'var(--text-faint)', minWidth: 14, textAlign: 'right', flexShrink: 0 }}>
                 {rank + 1}
               </span>
-              <span style={{ color: codeColor, fontWeight: 'bold', fontSize: 11, minWidth: 48, flexShrink: 0 }}>
+              <span style={{ fontWeight: 700, fontSize: 14, color: codeColor, minWidth: 52, flexShrink: 0 }}>
                 {code}
               </span>
               {meta && (
-                <span style={{
-                  fontSize: 8, color: 'var(--text-dim)', flex: 1,
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                }}>
-                  {meta.sector.toUpperCase()}
+                <span style={{ fontSize: 11, color: 'var(--text-dim)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {meta.name}
                 </span>
               )}
-              <span style={{ fontSize: 10, color: codeColor, fontWeight: 'bold',
-                minWidth: 14, textAlign: 'right', flexShrink: 0 }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-dim)', flexShrink: 0 }}>
                 {count}
               </span>
             </div>
-            <div style={{ height: 2, background: 'var(--border)', marginLeft: 20 }}>
-              <div style={{ height: '100%', width: `${barPct}%`, background: barColor, transition: 'width .3s ease' }} />
+            <div style={{ height: 4, background: 'var(--border)', borderRadius: 2, marginLeft: 22 }}>
+              <div style={{ height: '100%', borderRadius: 2, width: `${barPct}%`, background: barColor, transition: 'width .3s ease' }} />
             </div>
           </div>
         );

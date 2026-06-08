@@ -1,37 +1,25 @@
 'use client';
 
 import { useDashboardStore } from '@/store/dashboard-store';
-import KapPanel from './KapPanel';
 import NewsPanel from './NewsPanel';
+import KapPanel from './KapPanel';
 import BrokerRadar from './BrokerRadar';
-
-const TABS = [
-  { id: 'news'    as const, label: '▤ HABERLER',       icon: '▤' },
-  { id: 'kap'     as const, label: '▦ KAP BİLDİRİMLERİ', icon: '▦' },
-  { id: 'brokers' as const, label: '⊞ KURUM RADARI',   icon: '⊞' },
-] as const;
+import TcmbPanel from './TcmbPanel';
 
 export default function CenterPanel() {
-  const { activePanel, setActivePanel } = useDashboardStore();
+  const { activeView } = useDashboardStore();
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div className="tab-bar">
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            className={`tab-btn ${activePanel === tab.id ? 'tab-active' : ''}`}
-            onClick={() => setActivePanel(tab.id)}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--bg)' }}>
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-        {activePanel === 'news'    && <NewsPanel />}
-        {activePanel === 'kap'     && <KapPanel />}
-        {activePanel === 'brokers' && <BrokerRadar />}
+        {activeView === 'news'    && <NewsPanel />}
+        {activeView === 'kap'     && <KapPanel />}
+        {activeView === 'brokers' && <BrokerRadar />}
+        {activeView === 'tcmb'    && (
+          <div style={{ padding: 16, height: '100%', overflowY: 'auto', background: 'var(--bg)' }}>
+            <TcmbPanel />
+          </div>
+        )}
       </div>
     </div>
   );

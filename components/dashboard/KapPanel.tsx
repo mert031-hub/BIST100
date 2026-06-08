@@ -18,16 +18,16 @@ const CAT_LABELS: Record<KapCategory, string> = {
 };
 
 const CAT_COLORS: Record<KapCategory, string> = {
-  FINANSAL_TABLO:   'var(--green)',
-  YEN_IS_ILISKISI:  '#7ab8d4',
-  IHALE:            'var(--amber-bright)',
-  TEMETTU:          '#c080c0',
-  SERMAYE_ARTIRIMI: '#80c080',
-  GERI_ALIM:        '#a0c8a0',
-  BORCLANMA:        '#b8a060',
-  OZEL_DURUM:       'var(--amber)',
-  YK_KARARI:        'var(--text-dim)',
-  DIGER:            'var(--text-faint)',
+  FINANSAL_TABLO:   '#16A34A',
+  YEN_IS_ILISKISI:  '#2563EB',
+  IHALE:            '#D97706',
+  TEMETTU:          '#7C3AED',
+  SERMAYE_ARTIRIMI: '#059669',
+  GERI_ALIM:        '#16A34A',
+  BORCLANMA:        '#D97706',
+  OZEL_DURUM:       '#D97706',
+  YK_KARARI:        '#6B7280',
+  DIGER:            '#9CA3AF',
 };
 
 // Filter chips shown in the panel — ordered by content relevance
@@ -67,15 +67,20 @@ export default function KapPanel() {
   const [loading, setLoading] = useState(true);
   const [catFilter, setCatFilter] = useState<KapCategory | 'ALL'>('ALL');
 
-  const { selectedSources, addSource, removeSource, kapFilter, setKapFilter } = useDashboardStore();
+  const { selectedSources, addSource, removeSource, kapFilter, setKapFilter, setKapCounts } = useDashboardStore();
 
   useEffect(() => {
     async function load() {
       try {
         const res = await fetch('/api/kap');
         const d = await res.json();
-        setDisclosures(d.disclosures ?? []);
+        const discs = d.disclosures ?? [];
+        setDisclosures(discs);
         setSource(d.source);
+        // Build KAP counts per company and push to store
+        const counts: Record<string, number> = {};
+        for (const disc of discs) { counts[disc.companyCode] = (counts[disc.companyCode] ?? 0) + 1; }
+        setKapCounts(counts);
       } catch { /* silent */ }
       finally { setLoading(false); }
     }
@@ -101,7 +106,10 @@ export default function KapPanel() {
         <span className={`dot ${source === 'live' ? 'dot-live' : 'dot-mock'}`} />
         <span className="ph-title">KAP BİLDİRİMLERİ</span>
         {source === 'mock' && (
-          <span style={{ fontSize: 8, color: 'var(--text-dim)', letterSpacing: 1 }}>DEMO VERİ</span>
+          <span style={{
+            fontSize: 10, fontWeight: 600, padding: '1px 7px', borderRadius: 3,
+            background: '#DBEAFE', color: '#1D4ED8', border: '1px solid #BFDBFE',
+          }}>DEMO</span>
         )}
         <span className="ph-right">{filtered.length} KAYIT</span>
       </div>
@@ -155,39 +163,39 @@ export default function KapPanel() {
           return (
             <div key={d.id} className={`card fi ${sel ? 'sel' : ''}`}>
               <ImpBar score={d.importanceScore} />
-              <div style={{ padding: '5px 8px 6px' }}>
+              <div style={{ padding: '10px 16px 10px' }}>
                 {/* Row 1: code + category badge + score + time */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4 }}>
-                  <span style={{ color: 'var(--amber-bright)', fontWeight: 'bold', fontSize: 11, minWidth: 42, flexShrink: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
+                  <span style={{ color: 'var(--amber)', fontWeight: 700, fontSize: 14, minWidth: 52, flexShrink: 0 }}>
                     {d.companyCode}
                   </span>
                   <span style={{
-                    fontSize: 8, color: catColor, letterSpacing: 0.5,
-                    border: '1px solid', borderColor: catColor,
-                    padding: '0 4px', opacity: 0.85, flexShrink: 0,
+                    fontSize: 10, color: catColor, fontWeight: 600,
+                    background: `${catColor}18`, border: `1px solid ${catColor}40`,
+                    borderRadius: 3, padding: '1px 6px', flexShrink: 0,
                   }}>
                     {CAT_LABELS[d.category]}
                   </span>
                   <Score score={d.importanceScore} />
-                  <span style={{ marginLeft: 'auto', fontSize: 8, color: 'var(--text-dim)', flexShrink: 0 }}>
+                  <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-dim)', flexShrink: 0 }}>
                     {timeAgo(d.date)}
                   </span>
                 </div>
 
                 {/* Company name */}
-                <div style={{ fontSize: 9, color: 'var(--text-dim)', marginBottom: 3, letterSpacing: 0.5 }}>
+                <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4, fontWeight: 500 }}>
                   {d.companyName}
                 </div>
 
                 {/* Title */}
-                <div style={{ fontSize: 11, color: 'var(--cream)', lineHeight: 1.45, marginBottom: 4 }}>
+                <div style={{ fontSize: 13, color: 'var(--cream)', lineHeight: 1.45, marginBottom: 5, fontWeight: 600 }}>
                   {d.title}
                 </div>
 
                 {/* Summary (truncated) */}
                 {d.summary && (
                   <div style={{
-                    fontSize: 9, color: 'var(--text-dim)', lineHeight: 1.4, marginBottom: 5,
+                    fontSize: 12, color: 'var(--text-dim)', lineHeight: 1.4, marginBottom: 6,
                     display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
                     overflow: 'hidden',
                   }}>
