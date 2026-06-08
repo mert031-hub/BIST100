@@ -3,18 +3,32 @@
 import { useEffect, useState } from 'react';
 import { BrokerReport, BrokerRecommendation } from '@/types/broker';
 import { useDashboardStore } from '@/store/dashboard-store';
-import PanelHeader from '@/components/ui/PanelHeader';
 
+function fmtDate(iso: string) {
+  return new Date(iso).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short', year: 'numeric' });
+}
 function timeAgo(iso: string) {
-  const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (diff < 60) return `${diff}dk`;
-  if (diff < 1440) return `${Math.floor(diff / 60)}sa`;
-  return `${Math.floor(diff / 1440)}g`;
+  const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (m < 60) return `${m}dk`;
+  if (m < 1440) return `${Math.floor(m / 60)}sa`;
+  return `${Math.floor(m / 1440)}g`;
 }
 
 function RecTag({ rec }: { rec: BrokerRecommendation }) {
-  const cls = rec === 'AL' || rec === 'ENDEKS_USTU' ? 'tag-al' : rec === 'SAT' || rec === 'ENDEKS_ALTI' ? 'tag-sat' : 'tag-tut';
+  const cls =
+    rec === 'AL' || rec === 'ENDEKS_USTU'  ? 'tag-al' :
+    rec === 'SAT' || rec === 'ENDEKS_ALTI' ? 'tag-sat' : 'tag-tut';
   return <span className={cls}>{rec.replace('_', ' ')}</span>;
+}
+
+function UpsideBar({ upside }: { upside: number }) {
+  const pct = Math.min(Math.abs(upside), 50) / 50 * 100;
+  const cls = upside >= 0 ? 'imp-high' : 'imp-low';
+  return (
+    <div className="imp-bar">
+      <div className={`imp-bar-fill ${cls}`} style={{ width: `${pct}%` }} />
+    </div>
+  );
 }
 
 export default function BrokerRadar() {
@@ -26,80 +40,111 @@ export default function BrokerRadar() {
   useEffect(() => {
     fetch('/api/brokers')
       .then((r) => r.json())
-      .then((d) => { setReports(d.reports ?? []); setSource(d.source); setLoading(false); })
-      .catch(() => setLoading(false));
+      .then((d) => { setReports(d.reports ?? []); setSource(d.source); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
   return (
-    <div className="panel" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <PanelHeader title="ARACI KURUM RADARI" live={source === 'live'} />
+    <div className="panel">
+      <div className="ph">
+        <span className={`dot ${source === 'live' ? 'dot-live' : 'dot-mock'}`} />
+        <span className="ph-title">ARACI KURUM RADARI</span>
+        <span className="ph-right">{reports.length} RAPOR</span>
+      </div>
+
       <div style={{ overflowY: 'auto', flex: 1 }}>
         {loading ? (
-          <div style={{ padding: 8, color: 'var(--terminal-text-dim)', fontSize: 11 }}>YÜKLENİYOR...</div>
+          <div style={{ padding: 8, fontSize: 10 }} className="dim">YÜKLENİYOR...</div>
         ) : reports.map((r) => {
-          const isSelected = selectedSources.some((s) => s.id === r.id);
-          const priceChange = r.oldTargetPrice ? r.newTargetPrice - r.oldTargetPrice : 0;
-          const isUp = priceChange >= 0;
+          const sel = selectedSources.some((s) => s.id === r.id);
+          const priceChg = r.oldTargetPrice ? r.newTargetPrice - r.oldTargetPrice : 0;
+          const up = priceChg >= 0;
+          const upside = r.upside ?? 0;
+
           return (
             <div
               key={r.id}
-              className={`list-item fade-in ${isSelected ? 'selected' : ''}`}
+              className={`card fi ${sel ? 'sel' : ''}`}
               onClick={() => {
-                const title = `${r.institution}: ${r.companyCode} hedef fiyat ${r.newTargetPrice} TL (${r.recommendation})`;
-                if (isSelected) removeSource(r.id);
+                const title = `${r.institution} → ${r.companyCode}: ${r.recommendation}, TP ${r.newTargetPrice} TL`;
+                if (sel) removeSource(r.id);
                 else addSource({ type: 'BROKER_REPORT', id: r.id, title, date: r.date, url: r.sourceUrl });
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-                <span style={{ color: 'var(--terminal-amber-bright)', fontSize: 11, fontWeight: 'bold', minWidth: 44 }}>
-                  {r.companyCode}
-                </span>
-                <RecTag rec={r.recommendation} />
-                <span style={{ marginLeft: 'auto', fontSize: 9, color: 'var(--terminal-text-dim)' }}>
-                  {timeAgo(r.date)}
-                </span>
-              </div>
+              {/* Upside bar */}
+              <UpsideBar upside={upside} />
+              <div style={{ padding: '5px 8px 6px' }}>
 
-              <div style={{ fontSize: 10, color: 'var(--terminal-cream-dim)', marginBottom: 3 }}>
-                {r.institution}
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11 }}>
-                {r.oldTargetPrice && (
-                  <span style={{ color: 'var(--terminal-text-dim)', textDecoration: 'line-through' }}>
-                    {r.oldTargetPrice.toFixed(2)}
+                {/* Row 1: code + rec + time */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4 }}>
+                  <span style={{ color: 'var(--amber-bright)', fontWeight: 'bold', fontSize: 11, minWidth: 42 }}>
+                    {r.companyCode}
                   </span>
-                )}
-                <span style={{ color: 'var(--terminal-amber-bright)', fontWeight: 'bold' }}>
-                  TP: {r.newTargetPrice.toFixed(2)} TL
-                </span>
-                {priceChange !== 0 && (
-                  <span className={isUp ? 'text-up' : 'text-down'} style={{ fontSize: 10 }}>
-                    {isUp ? '▲' : '▼'} {Math.abs(priceChange).toFixed(2)}
+                  <RecTag rec={r.recommendation} />
+                  <span style={{ marginLeft: 'auto', fontSize: 8, color: 'var(--text-dim)' }}>
+                    {timeAgo(r.date)}
                   </span>
-                )}
-                {r.upside !== undefined && r.upside > 0 && (
-                  <span style={{ fontSize: 9, color: 'var(--terminal-green-bright)', marginLeft: 'auto' }}>
-                    +{r.upside.toFixed(1)}% potansiyel
-                  </span>
-                )}
-              </div>
-
-              {r.notes && (
-                <div style={{ fontSize: 9, color: 'var(--terminal-text-dim)', marginTop: 3, fontStyle: 'italic' }}>
-                  {r.notes}
                 </div>
-              )}
 
-              <div style={{ fontSize: 8, color: 'var(--terminal-text-dim)', marginTop: 4, letterSpacing: 1 }}>
-                ⚠ KAYNAK KURUM GÖRÜŞÜDÜR · YATIRIM TAVSİYESİ DEĞİLDİR
-              </div>
-
-              {isSelected && (
-                <div style={{ fontSize: 9, color: 'var(--terminal-amber)', marginTop: 2 }}>
-                  ✓ STÜDYO'YA EKLENDİ
+                {/* Row 2: institution */}
+                <div style={{ fontSize: 10, color: 'var(--text-dim)', marginBottom: 5 }}>
+                  {r.institution}
+                  {r.analyst ? ` · ${r.analyst}` : ''}
                 </div>
-              )}
+
+                {/* Row 3: prices */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
+                  {r.oldTargetPrice && (
+                    <span style={{ fontSize: 10, color: 'var(--text-faint)', textDecoration: 'line-through' }}>
+                      {r.oldTargetPrice.toFixed(2)}
+                    </span>
+                  )}
+                  <span style={{ fontSize: 13, color: 'var(--amber-bright)', fontWeight: 'bold' }}>
+                    TP {r.newTargetPrice.toFixed(2)} TL
+                  </span>
+                  {priceChg !== 0 && (
+                    <span className={up ? 'up' : 'down'} style={{ fontSize: 10 }}>
+                      {up ? '▲' : '▼'} {Math.abs(priceChg).toFixed(2)}
+                    </span>
+                  )}
+                  {upside > 0 && (
+                    <span className="up" style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 'bold' }}>
+                      +{upside.toFixed(1)}%↑
+                    </span>
+                  )}
+                </div>
+
+                {/* Notes */}
+                {r.notes && (
+                  <div style={{ fontSize: 9, color: 'var(--text-dim)', marginBottom: 5, fontStyle: 'italic' }}>
+                    &ldquo;{r.notes}&rdquo;
+                  </div>
+                )}
+
+                {/* Row 4: date + source link */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 8, color: 'var(--text-faint)' }}>📅 {fmtDate(r.date)}</span>
+                  <a
+                    href={r.sourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="src-link"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    ↗ RAPOR
+                  </a>
+                  {sel && (
+                    <span style={{ marginLeft: 'auto', fontSize: 8, color: 'var(--amber)' }}>
+                      ✓ STÜDYO
+                    </span>
+                  )}
+                </div>
+
+                <div style={{ fontSize: 7, color: 'var(--text-faint)', marginTop: 5, letterSpacing: 1 }}>
+                  ⚠ KAYNAK KURUM GÖRÜŞÜDÜR · YATIRIM TAVSİYESİ DEĞİLDİR
+                </div>
+              </div>
             </div>
           );
         })}

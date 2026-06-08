@@ -1,74 +1,191 @@
 'use client';
 
 import { useDashboardStore } from '@/store/dashboard-store';
-import { ContentPlatform } from '@/types/content';
+import { ContentPlatform, GeneratedContent } from '@/types/content';
+import { ContentSource } from '@/types/content';
 
-const PLATFORMS: { id: ContentPlatform; label: string; icon: string }[] = [
-  { id: 'INSTAGRAM_POST', label: 'IG POST', icon: '◈' },
-  { id: 'INSTAGRAM_CAROUSEL', label: 'IG CAROUSEL', icon: '◫' },
-  { id: 'INSTAGRAM_STORY', label: 'IG STORY', icon: '◻' },
-  { id: 'X_THREAD', label: 'X THREAD', icon: '✕' },
-  { id: 'LINKEDIN', label: 'LINKEDIN', icon: '▤' },
-  { id: 'TELEGRAM', label: 'TELEGRAM', icon: '✈' },
+/* ─── Platform Config ───────────────────────────────────── */
+type PlatformCfg = { id: ContentPlatform; label: string; icon: string; desc: string };
+
+const PLATFORMS: PlatformCfg[] = [
+  { id: 'INSTAGRAM_POST',     label: 'IG POST',      icon: '◈', desc: '1080×1080' },
+  { id: 'INSTAGRAM_CAROUSEL', label: 'CAROUSEL',     icon: '◫', desc: '1080×1080' },
+  { id: 'INSTAGRAM_STORY',    label: 'IG STORY',     icon: '◻', desc: '1080×1920' },
+  { id: 'X_THREAD',           label: 'X THREAD',     icon: '✕', desc: '280 kar' },
+  { id: 'LINKEDIN',           label: 'LINKEDIN',     icon: '▤', desc: 'makale' },
+  { id: 'TELEGRAM',           label: 'TELEGRAM',     icon: '✈', desc: 'mesaj' },
 ];
 
-export default function ContentStudio() {
-  const {
-    selectedSources,
-    removeSource,
-    clearSources,
-    activePlatform,
-    setActivePlatform,
-    generatedContent,
-    generateForPlatform,
-  } = useDashboardStore();
+const IS_INSTAGRAM = (p: ContentPlatform) =>
+  p === 'INSTAGRAM_POST' || p === 'INSTAGRAM_CAROUSEL' || p === 'INSTAGRAM_STORY';
+
+/* ─── Instagram Preview Card ───────────────────────────── */
+function InstagramPreview({ content, platform }: { content: GeneratedContent; platform: ContentPlatform }) {
+  const isStory = platform === 'INSTAGRAM_STORY';
+  const mainSource = content.sources[0];
+  const companies = content.sources
+    .flatMap((s) => s.title.match(/\$[A-Z]{2,6}/g) ?? [])
+    .filter((v, i, a) => a.indexOf(v) === i)
+    .slice(0, 4);
 
   return (
-    <div className="panel" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div className="panel-header">
+    <div className="ig-wrap">
+      <div
+        className="ig-card"
+        style={{ aspectRatio: isStory ? '9/16' : '4/5', maxWidth: isStory ? 180 : '100%' }}
+      >
+        {/* Header band */}
+        <div className="ig-header">
+          <span style={{ fontSize: 11, color: 'var(--amber)', fontWeight: 'bold', letterSpacing: 2 }}>◈</span>
+          <div>
+            <div style={{ fontSize: 8, color: 'var(--amber)', letterSpacing: 2, fontWeight: 'bold' }}>
+              BIST RADAR STUDIO
+            </div>
+            <div style={{ fontSize: 7, color: 'var(--text-dim)', letterSpacing: 1 }}>
+              bist.radar · {new Date(content.createdAt).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' })}
+            </div>
+          </div>
+          <span style={{ marginLeft: 'auto', fontSize: 7, color: 'var(--text-faint)', letterSpacing: 1 }}>
+            {isStory ? '1080×1920' : '1080×1350'}
+          </span>
+        </div>
+
+        <div className="ig-body">
+          {/* Company tags */}
+          {companies.length > 0 && (
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+              {companies.map((c) => (
+                <span key={c} style={{
+                  fontSize: 8, color: 'var(--amber)', letterSpacing: 1,
+                  border: '1px solid var(--amber-dim)', padding: '1px 5px',
+                }}>
+                  {c}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Divider */}
+          <div style={{ height: 1, background: 'var(--border-2)', margin: '2px 0' }} />
+
+          {/* Headline */}
+          <div style={{
+            fontSize: isStory ? 13 : 12,
+            color: 'var(--cream)',
+            fontWeight: 'bold',
+            lineHeight: 1.45,
+            flex: 1,
+          }}>
+            {mainSource?.title ?? 'Piyasa Güncelleme'}
+          </div>
+
+          {/* Additional sources */}
+          {content.sources.slice(1, 3).map((s) => (
+            <div key={s.id} style={{ fontSize: 9, color: 'var(--text-dim)', lineHeight: 1.4 }}>
+              • {s.title}
+            </div>
+          ))}
+
+          {/* Decorative bar */}
+          <div style={{ display: 'flex', gap: 2, marginTop: 'auto', paddingTop: 4 }}>
+            {[95, 70, 45, 80, 60, 90, 50, 75].map((h, i) => (
+              <div key={i} style={{
+                flex: 1, height: h / 10,
+                background: i % 3 === 0 ? 'var(--amber-dim)' : 'var(--border-2)',
+                alignSelf: 'flex-end',
+              }} />
+            ))}
+          </div>
+        </div>
+
+        <div className="ig-footer">
+          <div style={{ fontSize: 8, color: 'var(--text-dim)', marginBottom: 2 }}>
+            Kaynak: {content.sources.map((s) => s.type).join(' · ')}
+          </div>
+          <div style={{ fontSize: 7, color: 'var(--text-faint)', letterSpacing: 0.5 }}>
+            {content.disclaimer}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Source Type Icon ──────────────────────────────────── */
+function srcIcon(type: ContentSource['type']) {
+  if (type === 'NEWS') return '📰';
+  if (type === 'KAP') return '📋';
+  if (type === 'BROKER_REPORT') return '📊';
+  return '🏛';
+}
+
+/* ─── Main Component ────────────────────────────────────── */
+export default function ContentStudio() {
+  const {
+    selectedSources, removeSource, clearSources,
+    activePlatform, setActivePlatform,
+    generatedContent, generateForPlatform,
+  } = useDashboardStore();
+
+  const isIg = IS_INSTAGRAM(activePlatform);
+
+  return (
+    <div className="panel">
+      {/* Header */}
+      <div className="ph">
         <span className="dot" />
-        <span className="title">İÇERİK STÜDYOSU</span>
-        <span style={{ marginLeft: 'auto', fontSize: 9, color: 'var(--terminal-text-dim)' }}>
-          {selectedSources.length} KAYNAK SEÇİLİ
-        </span>
+        <span className="ph-title">İÇERİK STÜDYOSU</span>
+        <span className="ph-right">{selectedSources.length > 0 ? `${selectedSources.length} KAYNAK` : 'KAYNAK SEÇ'}</span>
       </div>
 
       {/* Platform selector */}
-      <div style={{ padding: '6px 8px', borderBottom: '1px solid var(--terminal-border)', display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+      <div style={{
+        padding: '5px 8px',
+        borderBottom: '1px solid var(--border)',
+        display: 'flex', flexWrap: 'wrap', gap: 3,
+        flexShrink: 0,
+      }}>
         {PLATFORMS.map((p) => (
           <button
             key={p.id}
-            className={`platform-btn ${activePlatform === p.id ? 'active' : ''}`}
+            className={`plat-btn ${activePlatform === p.id ? 'plat-active' : ''}`}
             onClick={() => setActivePlatform(p.id)}
+            title={p.desc}
           >
             {p.icon} {p.label}
           </button>
         ))}
       </div>
 
-      {/* Selected sources */}
-      <div style={{ padding: '4px 8px', borderBottom: '1px solid var(--terminal-border)', maxHeight: 120, overflowY: 'auto' }}>
-        <div style={{ fontSize: 9, color: 'var(--terminal-text-dim)', letterSpacing: 1, marginBottom: 4 }}>
-          SEÇİLİ KAYNAKLAR
+      {/* Selected sources queue */}
+      <div style={{
+        padding: '5px 8px',
+        borderBottom: '1px solid var(--border)',
+        flexShrink: 0,
+        maxHeight: 110,
+        overflowY: 'auto',
+      }}>
+        <div style={{ fontSize: 8, color: 'var(--text-dim)', letterSpacing: 1, marginBottom: 4 }}>
+          KAYNAK KUYRUGU
         </div>
         {selectedSources.length === 0 ? (
-          <div style={{ fontSize: 10, color: 'var(--terminal-text-dim)' }}>
-            ← Soldan haber, KAP bildirimi veya kurum raporu seçin
+          <div style={{ fontSize: 9, color: 'var(--text-faint)', lineHeight: 1.6 }}>
+            ← Habere, KAP bildirimine veya kurum raporuna tıklayın
           </div>
         ) : selectedSources.map((s) => (
-          <div
-            key={s.id}
-            style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 3 }}
-          >
-            <span style={{ fontSize: 8, color: 'var(--terminal-amber-dim)', minWidth: 18 }}>
-              {s.type === 'NEWS' ? '📰' : s.type === 'KAP' ? '📋' : '📊'}
-            </span>
-            <span style={{ fontSize: 10, color: 'var(--terminal-cream)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div key={s.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 4, marginBottom: 3 }}>
+            <span style={{ fontSize: 9, flexShrink: 0, marginTop: 1 }}>{srcIcon(s.type)}</span>
+            <span style={{
+              fontSize: 9, color: 'var(--cream)', flex: 1,
+              overflow: 'hidden', display: '-webkit-box',
+              WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+              lineHeight: 1.4,
+            }}>
               {s.title}
             </span>
             <button
               onClick={() => removeSource(s.id)}
-              style={{ background: 'none', border: 'none', color: 'var(--terminal-red-bright)', cursor: 'pointer', fontSize: 10, padding: '0 2px' }}
+              style={{ background: 'none', border: 'none', color: 'var(--red)', cursor: 'pointer', fontSize: 11, flexShrink: 0 }}
             >
               ×
             </button>
@@ -76,109 +193,125 @@ export default function ContentStudio() {
         ))}
       </div>
 
-      {/* Generate button */}
-      <div style={{ padding: '6px 8px', borderBottom: '1px solid var(--terminal-border)', display: 'flex', gap: 6 }}>
+      {/* Generate + Clear buttons */}
+      <div style={{ padding: '5px 8px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 5, flexShrink: 0 }}>
         <button
-          onClick={() => generateForPlatform()}
+          className="btn-primary"
           disabled={selectedSources.length === 0}
-          style={{
-            flex: 1,
-            padding: '5px',
-            background: selectedSources.length > 0 ? 'rgba(200, 168, 75, 0.1)' : 'transparent',
-            border: `1px solid ${selectedSources.length > 0 ? 'var(--terminal-amber)' : 'var(--terminal-border)'}`,
-            color: selectedSources.length > 0 ? 'var(--terminal-amber-bright)' : 'var(--terminal-text-dim)',
-            cursor: selectedSources.length > 0 ? 'pointer' : 'default',
-            fontFamily: 'monospace',
-            fontSize: 10,
-            letterSpacing: 2,
-            textTransform: 'uppercase',
-          }}
+          onClick={() => generateForPlatform()}
         >
-          ▶ İÇERİK OLUŞTUR
+          ▶ OLUŞTUR
         </button>
         {selectedSources.length > 0 && (
-          <button
-            onClick={clearSources}
-            style={{
-              padding: '5px 10px',
-              background: 'transparent',
-              border: '1px solid var(--terminal-border-bright)',
-              color: 'var(--terminal-text-dim)',
-              cursor: 'pointer',
-              fontFamily: 'monospace',
-              fontSize: 10,
-            }}
-          >
+          <button className="btn-ghost" onClick={clearSources} title="Temizle">
             ✕
           </button>
         )}
       </div>
 
-      {/* Generated content preview */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '6px 8px' }}>
+      {/* Preview / Content area */}
+      <div style={{ flex: 1, overflowY: 'auto' }}>
         {!generatedContent ? (
-          <div style={{ color: 'var(--terminal-text-dim)', fontSize: 10 }}>
-            <div style={{ marginBottom: 8, letterSpacing: 1 }}>HAZIR ŞABLONLAR:</div>
+          /* Empty state */
+          <div style={{ padding: '12px 10px' }}>
+            <div style={{ fontSize: 8, color: 'var(--text-dim)', letterSpacing: 2, marginBottom: 10 }}>
+              PLATFORM DESTEKLERİ
+            </div>
             {PLATFORMS.map((p) => (
-              <div key={p.id} style={{ marginBottom: 3, color: 'var(--terminal-border-bright)', fontSize: 9 }}>
-                {p.icon} {p.label}
+              <div key={p.id} style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '3px 0', borderBottom: '1px solid var(--border)',
+              }}>
+                <span style={{ fontSize: 10, color: activePlatform === p.id ? 'var(--amber)' : 'var(--text-dim)', minWidth: 12 }}>
+                  {p.icon}
+                </span>
+                <span style={{ fontSize: 9, color: activePlatform === p.id ? 'var(--amber)' : 'var(--text-dim)', flex: 1, letterSpacing: 1 }}>
+                  {p.label}
+                </span>
+                <span style={{ fontSize: 8, color: 'var(--text-faint)' }}>{p.desc}</span>
               </div>
             ))}
-            <div style={{ marginTop: 12, fontSize: 9, lineHeight: 1.6 }}>
-              1. Soldan kaynak seç<br />
-              2. Platform seç<br />
-              3. İçerik oluştur<br />
-              4. Kopyala ve paylaş
+            <div style={{ marginTop: 12, fontSize: 8, color: 'var(--text-faint)', lineHeight: 1.8, letterSpacing: 0.5 }}>
+              1. SOL PANELDEN KAYNAK SEÇ<br/>
+              2. PLATFORM BELİRLE<br/>
+              3. OLUŞTUR BUTONUNA BAS<br/>
+              4. KOPYALA VE PAYLAŞ
             </div>
           </div>
         ) : (
-          <div className="fade-in">
-            <div style={{ fontSize: 9, color: 'var(--terminal-amber)', letterSpacing: 2, marginBottom: 6 }}>
-              {generatedContent.platform} · {new Date(generatedContent.createdAt).toLocaleTimeString('tr-TR')}
-            </div>
-
+          /* Generated content */
+          <div className="fi">
             <div style={{
-              background: 'var(--terminal-bg-3)',
-              border: '1px solid var(--terminal-border-bright)',
-              padding: 8,
-              marginBottom: 6,
-              fontSize: 11,
-              color: 'var(--terminal-cream)',
-              lineHeight: 1.6,
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-word',
+              padding: '4px 8px', borderBottom: '1px solid var(--border)',
+              fontSize: 8, color: 'var(--amber)', letterSpacing: 2,
+              display: 'flex', alignItems: 'center', gap: 6,
             }}>
-              {generatedContent.body}
+              <span>{PLATFORMS.find((p) => p.id === generatedContent.platform)?.icon}</span>
+              <span>{generatedContent.platform}</span>
+              <span className="dim" style={{ marginLeft: 'auto' }}>
+                {new Date(generatedContent.createdAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+              </span>
             </div>
 
-            <div style={{ fontSize: 9, color: 'var(--terminal-amber-dim)', marginBottom: 6 }}>
-              {generatedContent.hashtags.join(' ')}
+            {/* Instagram visual preview */}
+            {isIg && (
+              <div style={{ borderBottom: '1px solid var(--border)' }}>
+                <InstagramPreview content={generatedContent} platform={activePlatform} />
+              </div>
+            )}
+
+            {/* Text content */}
+            <div style={{ padding: '6px 8px', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 8, color: 'var(--text-dim)', letterSpacing: 1, marginBottom: 4 }}>
+                METİN
+              </div>
+              <div className="content-area" style={{ fontSize: isIg ? 10 : 11 }}>
+                {generatedContent.body}
+              </div>
             </div>
 
-            <div style={{ fontSize: 8, color: 'var(--terminal-text-dim)', letterSpacing: 1 }}>
-              ⚠ {generatedContent.disclaimer}
+            {/* Hashtags */}
+            <div style={{ padding: '5px 8px', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 8, color: 'var(--text-dim)', letterSpacing: 1, marginBottom: 3 }}>
+                ETIKETLER
+              </div>
+              <div style={{ fontSize: 9, color: 'var(--amber-dim)', lineHeight: 1.6 }}>
+                {generatedContent.hashtags.join('  ')}
+              </div>
             </div>
 
-            <button
-              onClick={() => {
-                const text = `${generatedContent.body}\n\n${generatedContent.hashtags.join(' ')}\n\n${generatedContent.disclaimer}`;
-                navigator.clipboard.writeText(text).catch(() => {});
-              }}
-              style={{
-                marginTop: 8,
-                width: '100%',
-                padding: '4px',
-                background: 'transparent',
-                border: '1px solid var(--terminal-border-bright)',
-                color: 'var(--terminal-cream-dim)',
-                cursor: 'pointer',
-                fontFamily: 'monospace',
-                fontSize: 9,
-                letterSpacing: 2,
-              }}
-            >
-              ◎ KOPYALA
-            </button>
+            {/* Disclaimer */}
+            <div style={{ padding: '4px 8px', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 8, color: 'var(--text-faint)', letterSpacing: 0.5 }}>
+                {generatedContent.disclaimer}
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div style={{ padding: '6px 8px', display: 'flex', gap: 5 }}>
+              <button
+                className="btn-primary"
+                style={{ fontSize: 9 }}
+                onClick={() => {
+                  const txt = [
+                    generatedContent.body,
+                    '',
+                    generatedContent.hashtags.join(' '),
+                    '',
+                    generatedContent.disclaimer,
+                  ].join('\n');
+                  navigator.clipboard.writeText(txt).catch(() => {});
+                }}
+              >
+                ◎ KOPYALA
+              </button>
+              <button
+                className="btn-ghost"
+                onClick={() => clearSources()}
+              >
+                ✕ TEMIZLE
+              </button>
+            </div>
           </div>
         )}
       </div>

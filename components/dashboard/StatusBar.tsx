@@ -6,25 +6,37 @@ export default function StatusBar() {
   const [time, setTime] = useState('');
 
   useEffect(() => {
-    const update = () => setTime(new Date().toLocaleTimeString('tr-TR'));
-    update();
-    const iv = setInterval(update, 1000);
+    const u = () => setTime(new Date().toLocaleTimeString('tr-TR'));
+    u();
+    const iv = setInterval(u, 1000);
     return () => clearInterval(iv);
   }, []);
 
   return (
     <div className="status-bar">
-      <span style={{ color: 'var(--terminal-amber)', fontWeight: 'bold' }}>BIST RADAR STUDIO</span>
-      <span>v1.0</span>
-      <span style={{ color: 'var(--terminal-border-bright)' }}>|</span>
-      <span>{time}</span>
-      <span style={{ color: 'var(--terminal-border-bright)' }}>|</span>
-      <span style={{ color: 'var(--terminal-green-bright)' }}>● SİSTEM AKTİF</span>
-      <span style={{ color: 'var(--terminal-border-bright)' }}>|</span>
-      <span>BIST100 · KAP · EVDS · RSS</span>
-      <span style={{ marginLeft: 'auto', color: 'var(--terminal-text-dim)' }}>
-        ⚠ BİLGİLENDİRME AMAÇLIDIR · YATIRIM TAVSİYESİ DEĞİLDİR
-      </span>
+      <div className="sb-item">
+        <span style={{ color: 'var(--amber)', fontWeight: 'bold', letterSpacing: 2 }}>BIST RADAR</span>
+        <span className="dim">v1.0</span>
+      </div>
+      <div className="sb-item">
+        <span className="dot dot-live" style={{ width: 4, height: 4 }} />
+        <span className="up" style={{ fontSize: 8 }}>AKTİF</span>
+      </div>
+      <div className="sb-item">
+        <span className="dim">BIST100</span>
+        <span className="amber">●</span>
+        <span className="dim">KAP</span>
+        <span className="amber">●</span>
+        <span className="dim">EVDS</span>
+        <span className="amber">●</span>
+        <span className="dim">RSS</span>
+      </div>
+      <div className="sb-item">
+        <span className="faint">{time}</span>
+      </div>
+      <div className="sb-disc">
+        ⚠ BİLGİLENDİRME AMAÇLIDIR · YATIRIM TAVSİYESİ DEĞİLDİR · GECİKMELİ VERİ
+      </div>
     </div>
   );
 }

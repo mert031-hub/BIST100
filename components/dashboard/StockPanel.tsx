@@ -3,115 +3,93 @@
 import { useEffect, useState } from 'react';
 import { Stock } from '@/types/stock';
 import Sparkline from '@/components/ui/Sparkline';
-import PanelHeader from '@/components/ui/PanelHeader';
 
-function fmt(n: number, decimals = 2) {
-  return n.toLocaleString('tr-TR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+function fmtPrice(n: number) {
+  return n.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
-
 function fmtVol(n: number) {
   if (n >= 1e9) return (n / 1e9).toFixed(1) + 'B';
   if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
   if (n >= 1e3) return (n / 1e3).toFixed(0) + 'K';
-  return n.toString();
+  return String(n);
 }
 
 export default function StockPanel() {
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [source, setSource] = useState<'live' | 'mock'>('mock');
-  const [lastFetch, setLastFetch] = useState<string>('');
+  const [lastFetch, setLastFetch] = useState('');
   const [loading, setLoading] = useState(true);
 
-  async function fetchStocks() {
-    try {
-      const res = await fetch('/api/stocks');
-      const data = await res.json();
-      setStocks(data.stocks ?? []);
-      setSource(data.source);
-      setLastFetch(new Date().toLocaleTimeString('tr-TR'));
-    } catch {
-      // silent fail
-    } finally {
-      setLoading(false);
-    }
-  }
-
   useEffect(() => {
-    fetchStocks();
-    const interval = setInterval(fetchStocks, 60000);
-    return () => clearInterval(interval);
+    async function load() {
+      try {
+        const res = await fetch('/api/stocks');
+        const d = await res.json();
+        setStocks(d.stocks ?? []);
+        setSource(d.source);
+        setLastFetch(new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }));
+      } catch { /* silent */ }
+      finally { setLoading(false); }
+    }
+    load();
+    const iv = setInterval(load, 60000);
+    return () => clearInterval(iv);
   }, []);
 
   return (
-    <div className="panel" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <PanelHeader
-        title="HİSSE TAKİP"
-        subtitle="BIST100"
-        live={source === 'live'}
-        right={
-          <span style={{ fontSize: 9, color: 'var(--terminal-text-dim)' }}>
-            {lastFetch ? `↻ ${lastFetch}` : ''}
-          </span>
-        }
-      />
+    <div className="panel" style={{ flexShrink: 0 }}>
+      {/* Header */}
+      <div className="ph">
+        <span className={`dot ${source === 'live' ? 'dot-live' : 'dot-mock'}`} />
+        <span className="ph-title">HİSSE TAKİP</span>
+        <span className="ph-sub">BIST100</span>
+        <span className="ph-right">{lastFetch ? `↻ ${lastFetch}` : ''}</span>
+      </div>
 
       {/* Column headers */}
-      <div style={{
+      <div className="col-hdr" style={{
         display: 'grid',
-        gridTemplateColumns: '78px 60px 70px 70px 55px',
-        padding: '3px 8px',
-        fontSize: 9,
-        color: 'var(--terminal-text-dim)',
-        letterSpacing: '1px',
-        borderBottom: '1px solid var(--terminal-border)',
-        background: 'var(--terminal-bg-3)',
+        gridTemplateColumns: '68px 62px 66px 54px 58px',
+        padding: '2px 8px',
       }}>
         <span>KOD</span>
         <span style={{ textAlign: 'right' }}>FİYAT</span>
-        <span style={{ textAlign: 'right' }}>DEĞ%</span>
+        <span style={{ textAlign: 'right' }}>DEĞİŞ%</span>
         <span style={{ textAlign: 'right' }}>HACİM</span>
-        <span style={{ textAlign: 'center' }}>GRAFİK</span>
+        <span style={{ textAlign: 'center' }}>5G</span>
       </div>
 
-      <div style={{ overflowY: 'auto', flex: 1 }}>
+      {/* Rows */}
+      <div>
         {loading ? (
-          <div style={{ padding: '12px 8px', color: 'var(--terminal-text-dim)', fontSize: 11 }}>
-            VERİ YÜKLENİYOR<span className="cursor" />
+          <div style={{ padding: '10px 8px', fontSize: 10 }} className="dim cursor">
+            VERİ YÜKLENİYOR
           </div>
         ) : stocks.map((s) => {
-          const isUp = s.changePercent >= 0;
+          const up = s.changePercent >= 0;
           return (
-            <div key={s.symbol} className="ticker-row fade-in">
-              <span style={{ color: 'var(--terminal-amber-bright)', fontWeight: 'bold', fontSize: 11 }}>
+            <div key={s.symbol} className="ticker fi">
+              <span style={{ color: 'var(--amber-bright)', fontWeight: 'bold', fontSize: 11 }}>
                 {s.symbol.replace('.IS', '')}
               </span>
-              <span style={{ textAlign: 'right', color: 'var(--terminal-cream)' }}>
-                {fmt(s.price)}
+              <span className="cream" style={{ textAlign: 'right', fontSize: 11 }}>
+                {fmtPrice(s.price)}
               </span>
-              <span style={{ textAlign: 'right' }} className={isUp ? 'text-up' : 'text-down'}>
-                {isUp ? '+' : ''}{fmt(s.changePercent)}%
+              <span className={up ? 'up' : 'down'} style={{ textAlign: 'right', fontSize: 11 }}>
+                {up ? '+' : ''}{s.changePercent.toFixed(2)}%
               </span>
-              <span style={{ textAlign: 'right', color: 'var(--terminal-text-dim)', fontSize: 10 }}>
+              <span className="dim" style={{ textAlign: 'right', fontSize: 10 }}>
                 {fmtVol(s.volume)}
               </span>
               <span style={{ textAlign: 'center' }}>
-                <Sparkline data={s.sparkline} width={50} height={16} positive={isUp} />
+                <Sparkline data={s.sparkline} width={50} height={14} positive={up} />
               </span>
             </div>
           );
         })}
       </div>
 
-      <div style={{
-        padding: '3px 8px',
-        fontSize: 9,
-        color: 'var(--terminal-text-dim)',
-        borderTop: '1px solid var(--terminal-border)',
-        background: 'var(--terminal-bg-3)',
-        letterSpacing: '1px',
-      }}>
-        ⚠ BİLGİLENDİRME AMAÇLIDIR · GECİKMELİ VERİ
-      </div>
+      <div className="disc-footer">⚠ GECİKMELİ VERİ · BİLGİLENDİRME AMAÇLIDIR</div>
     </div>
   );
 }
