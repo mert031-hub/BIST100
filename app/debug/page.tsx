@@ -357,16 +357,33 @@ function EndpointInsight({ endpointKey, data }: { endpointKey: EndpointKey; data
 
   if (endpointKey === 'market') {
     const kpis = (d.kpis as Array<Record<string, unknown>>) ?? [];
+    const srcLabel = (ds: string) =>
+      ds === 'evds'           ? '● EVDS'          :
+      ds === 'yahoo'          ? '● YF'             :
+      ds === 'yahoo-fallback' ? '⚠ YF(fallback)'  :
+      ds === 'none'           ? '○ kaynak yok'     : ds;
+    const srcColor = (ds: string) =>
+      ds === 'evds'           ? '#4aac44' :
+      ds === 'yahoo'          ? '#4aac44' :
+      ds === 'yahoo-fallback' ? '#c8a84b' : '#b84444';
     return (
       <div style={{ margin: '0 12px 8px', padding: '8px 10px', background: 'rgba(0,0,0,0.2)', border: '1px solid #1a1a18' }}>
         <div style={{ fontSize: 8, color: '#c8a84b', letterSpacing: 1, marginBottom: 6 }}>MARKET KPI DURUMU</div>
-        {kpis.map((k) => row(
-          String(k.label),
-          `${k.value}  ${k.changeStr || ''}  ${k.isLive ? '● CANLI' : '○ DEMO'}`,
-          k.isLive ? '#4aac44' : '#7a6428',
-        ))}
-        {row('Source', String(d.source ?? '—'), sourceColor(String(d.source ?? '')))}
-        {row('Live / Total', `${d.liveCount} / ${d.total}`)}
+        {kpis.map((k) => {
+          const ds      = String(k.dataSource ?? 'none');
+          const live    = Boolean(k.isLive);
+          const errLine = k.errorReason ? `  ← ${k.errorReason}` : '';
+          return row(
+            String(k.label),
+            `${k.value}  ${k.changeStr || ''}  ${srcLabel(ds)}${errLine}`,
+            live ? srcColor(ds) : '#b84444',
+          );
+        })}
+        <div style={{ borderTop: '1px solid #252520', marginTop: 4, paddingTop: 4 }}>
+          {row('Genel kaynak', String(d.source ?? '—'), sourceColor(String(d.source ?? '')))}
+          {row('Canlı / Toplam', `${d.liveCount} / ${d.total}`)}
+          {row('Son güncelleme', String(d.lastFetch ?? '—'))}
+        </div>
       </div>
     );
   }

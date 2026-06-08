@@ -2,14 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import type { MarketKpi } from '@/app/api/market/route';
+import { useDashboardStore } from '@/store/dashboard-store';
 
-// Displayed while first fetch is in-flight
+// Displayed while first fetch is in-flight — no fake values
 const FALLBACK_KPIS: MarketKpi[] = [
-  { key: 'bist100', label: 'BIST100',   value: '—',      changeStr: '', up: true,  isLive: false },
-  { key: 'usd_try', label: 'USD/TRY',   value: '—',      changeStr: '', up: true,  isLive: false },
-  { key: 'eur_try', label: 'EUR/TRY',   value: '—',      changeStr: '', up: true,  isLive: false },
-  { key: 'brent',   label: 'Brent',     value: '—',      changeStr: '', up: true,  isLive: false },
-  { key: 'faiz',    label: 'TCMB Faiz', value: '%50,00', changeStr: '', up: false, isLive: false },
+  { key: 'bist100', label: 'BIST100',   value: '—', changeStr: '', up: true,  isLive: false },
+  { key: 'usd_try', label: 'USD/TRY',   value: '—', changeStr: '', up: true,  isLive: false },
+  { key: 'eur_try', label: 'EUR/TRY',   value: '—', changeStr: '', up: true,  isLive: false },
+  { key: 'brent',   label: 'Brent',     value: '—', changeStr: '', up: true,  isLive: false },
+  { key: 'faiz',    label: 'TCMB Faiz', value: '—', changeStr: '', up: false, isLive: false },
 ];
 
 function isMarketOpen() {
@@ -20,11 +21,12 @@ function isMarketOpen() {
 }
 
 export default function TopBar() {
-  const [time, setTime]         = useState('');
-  const [date, setDate]         = useState('');
-  const [open, setOpen]         = useState(false);
-  const [kpis, setKpis]         = useState<MarketKpi[]>(FALLBACK_KPIS);
-  const [mktSource, setMktSource] = useState<'live' | 'partial' | 'mock'>('mock');
+  const [time, setTime]           = useState('');
+  const [date, setDate]           = useState('');
+  const [open, setOpen]           = useState(false);
+  const [kpis, setKpis]           = useState<MarketKpi[]>(FALLBACK_KPIS);
+  const [mktSource, setMktSource] = useState<'live' | 'partial' | 'none'>('none');
+  const { setMarketKpis }         = useDashboardStore();
 
   // Clock tick
   useEffect(() => {
@@ -46,7 +48,8 @@ export default function TopBar() {
         const d = await (await fetch('/api/market')).json();
         if (Array.isArray(d.kpis) && d.kpis.length > 0) {
           setKpis(d.kpis);
-          setMktSource(d.source ?? 'mock');
+          setMktSource(d.source ?? 'none');
+          setMarketKpis(d.kpis);
         }
       } catch { /* keep fallback */ }
     };
@@ -55,7 +58,7 @@ export default function TopBar() {
     return () => clearInterval(iv);
   }, []);
 
-  const allMock = mktSource === 'mock';
+  const allOffline = mktSource === 'none';
 
   return (
     <div className="top-bar" style={{ height: 64 }}>
@@ -95,13 +98,13 @@ export default function TopBar() {
           Borsa {open ? 'Açık' : 'Kapalı'}
         </span>
         {/* Data source badge */}
-        {allMock ? (
+        {allOffline ? (
           <span style={{
             fontSize: 9, fontWeight: 600, letterSpacing: 0.5,
             padding: '2px 6px', borderRadius: 3,
-            background: '#DBEAFE', color: '#1D4ED8', border: '1px solid #BFDBFE',
+            background: '#FEE2E2', color: '#991B1B', border: '1px solid #FECACA',
           }}>
-            DEMO VERİ
+            KAYNAK YOK
           </span>
         ) : mktSource === 'partial' ? (
           <span style={{

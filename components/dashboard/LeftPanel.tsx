@@ -5,18 +5,9 @@ import { useDashboardStore } from '@/store/dashboard-store';
 import { COMPANIES, PRIORITY_COMPANIES } from '@/data/companies';
 import StockPanel from './StockPanel';
 import SourceHealthBar from './SourceHealthBar';
+import type { MarketKpi } from '@/app/api/market/route';
 
 type LeftTab = 'RADAR' | 'PRICES';
-
-/* ── Market summary items (demo data matching TopBar) ─────────────── */
-const MARKET_ITEMS = [
-  { label: 'BIST100',  value: '10.428,54', chg: '+0,82%', up: true  },
-  { label: 'BIST30',   value: '11.358,19', chg: '+0,75%', up: true  },
-  { label: 'Dolar/TL', value: '32,47',     chg: '+0,11%', up: true  },
-  { label: 'Euro/TL',  value: '35,12',     chg: '+0,07%', up: true  },
-  { label: 'Altın/gr', value: '2.420,31',  chg: '+0,28%', up: true  },
-  { label: 'Brent',    value: '85,42',     chg: '+0,41%', up: true  },
-];
 
 function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
@@ -37,7 +28,7 @@ function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }
 
 export default function LeftPanel() {
   const [tab, setTab] = useState<LeftTab>('RADAR');
-  const { topNewsItems, kapCounts } = useDashboardStore();
+  const { topNewsItems, kapCounts, marketKpis } = useDashboardStore();
   const [lastUpdate, setLastUpdate] = useState('');
 
   useEffect(() => {
@@ -180,23 +171,42 @@ export default function LeftPanel() {
           <StockPanel />
         )}
 
-        {/* PİYASA ÖZETİ — always visible regardless of tab */}
+        {/* PİYASA ÖZETİ — live data from /api/market via store */}
         <SectionHeader title="Piyasa Özeti" />
         <div>
-          {MARKET_ITEMS.map((item) => (
-            <div key={item.label} style={{
+          {marketKpis.length === 0 ? (
+            <div style={{ padding: '10px 16px', fontSize: 12, color: 'var(--text-faint)' }}>
+              Piyasa verisi yükleniyor...
+            </div>
+          ) : marketKpis.map((item: MarketKpi) => (
+            <div key={item.key} style={{
               display: 'flex', alignItems: 'center', padding: '8px 16px',
               borderBottom: '1px solid var(--border)',
+              opacity: item.isLive ? 1 : 0.7,
             }}>
               <span style={{ fontSize: 12, color: 'var(--text-dim)', fontWeight: 500, flex: 1 }}>
                 {item.label}
               </span>
-              <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--cream)', marginRight: 8 }}>
-                {item.value}
-              </span>
-              <span style={{ fontSize: 12, fontWeight: 600, color: item.up ? 'var(--green)' : 'var(--red)', minWidth: 54, textAlign: 'right' }}>
-                {item.up ? '+' : ''}{item.chg}
-              </span>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, justifyContent: 'flex-end' }}>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: item.isLive ? 'var(--cream)' : 'var(--text-faint)' }}>
+                    {item.value}
+                  </span>
+                  {item.changeStr && item.isLive && (
+                    <span style={{ fontSize: 11, fontWeight: 600, color: item.up ? 'var(--green)' : 'var(--red)' }}>
+                      {item.changeStr}
+                    </span>
+                  )}
+                </div>
+                {!item.isLive && item.errorReason && (
+                  <div style={{ fontSize: 8, color: '#EF4444', fontWeight: 600, letterSpacing: 0.3 }}>
+                    {item.errorReason}
+                  </div>
+                )}
+                {!item.isLive && !item.errorReason && (
+                  <div style={{ fontSize: 8, color: 'var(--text-faint)' }}>Veri yok</div>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -208,14 +218,16 @@ export default function LeftPanel() {
           display: 'flex', alignItems: 'center', gap: 8,
         }}>
           <span style={{ fontSize: 11, color: 'var(--text-faint)', flex: 1 }}>
-            {lastUpdate ? `Veriler ${lastUpdate} itibarıyla güncellendi.` : ''}
+            {lastUpdate ? `Güncellendi: ${lastUpdate}` : 'Yükleniyor...'}
           </span>
-          <span style={{
-            fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 3,
-            background: '#DBEAFE', color: '#1D4ED8', border: '1px solid #BFDBFE',
-          }}>
-            DEMO VERİ
-          </span>
+          {marketKpis.some((k: MarketKpi) => k.isLive) && (
+            <span style={{
+              fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 3,
+              background: '#DCFCE7', color: '#166534', border: '1px solid #86EFAC',
+            }}>
+              CANLI
+            </span>
+          )}
         </div>
       </div>
 

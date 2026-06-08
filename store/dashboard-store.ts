@@ -7,6 +7,7 @@ import type { KapDisclosure } from '@/types/kap';
 import type { NewsItem } from '@/types/news';
 import type { BrokerReport } from '@/types/broker';
 import type { TcmbIndicator } from '@/types/tcmb';
+import type { MarketKpi } from '@/app/api/market/route';
 
 export type ActiveView = 'overview' | 'news' | 'kap' | 'brokers' | 'tcmb' | 'feed';
 
@@ -62,6 +63,10 @@ interface DashboardStore {
   /** Company detail overlay — set to a ticker code to open, null to close */
   selectedCompany: string | null;
   setSelectedCompany: (code: string | null) => void;
+
+  /** Live market KPIs from /api/market — shared by TopBar and LeftPanel */
+  marketKpis: MarketKpi[];
+  setMarketKpis: (kpis: MarketKpi[]) => void;
 }
 
 export const useDashboardStore = create<DashboardStore>((set, get) => ({
@@ -119,4 +124,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
 
   selectedCompany: null,
   setSelectedCompany: (code) => set({ selectedCompany: code }),
+
+  marketKpis: [],
+  setMarketKpis: (kpis) => set({ marketKpis: kpis }),
 }));
