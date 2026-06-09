@@ -17,7 +17,7 @@ export interface MarketKpi {
   /** Shown inline in TopBar when isLive=false */
   errorReason?: string;
   /** Actual data source used — for debug */
-  dataSource?: 'evds' | 'yahoo' | 'yahoo-fallback' | 'none';
+  dataSource?: 'evds' | 'alpha-vantage' | 'yahoo' | 'yahoo-fallback' | 'none';
 }
 
 interface MarketResponse {
@@ -34,7 +34,7 @@ type QuoteResult = QuoteOk | QuoteErr;
 
 const cache = makeRouteCache<MarketResponse>(CACHE_TTL);
 
-// ─── EVDS helpers ──────────────────────────────────────────────────────────────
+// ─── EVDS ──────────────────────────────────────────────────────────────────────
 
 const EVDS_BASE = 'https://evds2.tcmb.gov.tr/service/evds';
 const EVDS_FMT  = (d: Date) =>
@@ -56,7 +56,6 @@ async function evdsSeries(series: string, apiKey: string, days = 10): Promise<Re
   return (data?.items ?? []) as Record<string, string>[];
 }
 
-/** Fetch USD/TRY or EUR/TRY from EVDS. Returns last value + day-over-day change. */
 async function fetchCurrencyEvds(series: string, apiKey: string, decimals = 4): Promise<QuoteResult> {
   if (!apiKey) return { error: 'EVDS API KEY YOK' };
   try {
@@ -86,7 +85,6 @@ async function fetchCurrencyEvds(series: string, apiKey: string, decimals = 4): 
   }
 }
 
-/** Fetch policy rate from EVDS. */
 async function fetchFaizEvds(apiKey: string): Promise<QuoteResult> {
   if (!apiKey) return { error: 'EVDS API KEY YOK' };
   try {
@@ -112,7 +110,46 @@ async function fetchFaizEvds(apiKey: string): Promise<QuoteResult> {
   }
 }
 
-// ─── Yahoo Finance helpers ─────────────────────────────────────────────────────
+// ─── Alpha Vantage ─────────────────────────────────────────────────────────────
+
+async function fetchCurrencyAlphaVantage(
+  fromCurrency: string,
+  toCurrency: string,
+  apiKey: string,
+  decimals = 4,
+): Promise<QuoteResult> {
+  if (!apiKey) return { error: 'ALPHA VANTAGE API KEY YOK' };
+  try {
+    const url =
+      `https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE` +
+      `&from_currency=${fromCurrency}&to_currency=${toCurrency}&apikey=${apiKey}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(7000) });
+    if (!res.ok) throw new Error(`AV HTTP ${res.status}`);
+    const data = await res.json();
+
+    if (data?.Note)        return { error: 'AV LİMİT AŞILDI' };
+    if (data?.Information) return { error: 'AV API KEY GEÇERSİZ' };
+
+    const rate = data?.['Realtime Currency Exchange Rate'];
+    if (!rate) return { error: 'AV VERİ BOŞ' };
+
+    const price = parseFloat(rate['5. Exchange Rate'] ?? '');
+    if (isNaN(price)) return { error: 'AV VERİ GEÇERSİZ' };
+
+    return {
+      value:     price.toLocaleString('tr-TR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }),
+      changeStr: '',
+      up:        true,
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : '';
+    if (msg.includes('AV HTTP')) return { error: msg };
+    if (msg.includes('timeout') || msg.includes('abort')) return { error: 'AV ZAMAN AŞIMI' };
+    return { error: 'AV ERİŞİM HATASI' };
+  }
+}
+
+// ─── Yahoo Finance ─────────────────────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function fetchYahooQuote(yf: any, symbol: string, decimals: number): Promise<QuoteResult> {
@@ -137,7 +174,7 @@ async function fetchYahooQuote(yf: any, symbol: string, decimals: number): Promi
   }
 }
 
-// ─── KPI builder helper ────────────────────────────────────────────────────────
+// ─── KPI builder ───────────────────────────────────────────────────────────────
 
 function makeKpi(
   key: string, label: string, result: QuoteResult,
@@ -156,55 +193,59 @@ export async function GET() {
   if (cached) return NextResponse.json(cached);
 
   const evdsKey = process.env.EVDS_API_KEY ?? '';
+  const avKey   = process.env.ALPHA_VANTAGE_API_KEY ?? '';
 
-  // USD/TRY and EUR/TRY: EVDS primary, Yahoo fallback
-  // BIST100 and Brent: Yahoo only
-  // Policy rate: EVDS only
-  // All fetch in parallel
   let yf: unknown = null;
   try {
     const { default: YahooFinance } = await import('yahoo-finance2');
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     yf = new (YahooFinance as any)({ suppressNotices: ['yahooSurvey'] });
   } catch {
-    // Yahoo Finance module unavailable — proceed without it
+    // Yahoo Finance unavailable — proceed without it
   }
 
   const noYahoo: QuoteResult = { error: 'YAHOO MODÜL HATASI' };
 
-  const [
-    bist100Res,
-    usdTryEvdsRes,
-    eurTryEvdsRes,
-    brentRes,
-    faizRes,
-  ] = await Promise.all([
-    yf ? fetchYahooQuote(yf, '^XU100',   0) : Promise.resolve(noYahoo),
+  const [bist100Res, usdTryEvdsRes, eurTryEvdsRes, brentRes, faizRes] = await Promise.all([
+    yf ? fetchYahooQuote(yf, '^XU100', 0) : Promise.resolve(noYahoo),
     fetchCurrencyEvds('TP.DK.USD.A.YTL', evdsKey, 4),
     fetchCurrencyEvds('TP.DK.EUR.A.YTL', evdsKey, 4),
-    yf ? fetchYahooQuote(yf, 'BZ=F',     2) : Promise.resolve(noYahoo),
+    yf ? fetchYahooQuote(yf, 'BZ=F', 2)  : Promise.resolve(noYahoo),
     fetchFaizEvds(evdsKey),
   ]);
 
-  // For currencies: if EVDS failed (not "API KEY YOK"), try Yahoo as fallback
-  async function withYahooFallback(
+  // EVDS → Alpha Vantage → Yahoo Finance → error (no mock)
+  async function withFallbacks(
     evdsResult: QuoteResult,
-    symbol: string,
+    avFrom: string,
+    avTo: string,
+    yfSymbol: string,
     decimals: number,
   ): Promise<{ result: QuoteResult; source: MarketKpi['dataSource'] }> {
     if (!('error' in evdsResult)) return { result: evdsResult, source: 'evds' };
-    // Don't fall back if key is simply missing — that's a config issue, not a transient error
-    if (evdsResult.error === 'EVDS API KEY YOK') return { result: evdsResult, source: 'none' };
-    if (!yf) return { result: evdsResult, source: 'none' };
-    const fallback = await fetchYahooQuote(yf, symbol, decimals);
-    if (!('error' in fallback)) return { result: fallback, source: 'yahoo-fallback' };
-    // Both failed — return combined error
-    return { result: { error: `EVDS: ${evdsResult.error} · YF: ${fallback.error}` }, source: 'none' };
+
+    // Alpha Vantage fallback
+    if (avKey) {
+      const avResult = await fetchCurrencyAlphaVantage(avFrom, avTo, avKey, decimals);
+      if (!('error' in avResult)) return { result: avResult, source: 'alpha-vantage' };
+    }
+
+    // Yahoo Finance fallback
+    if (yf) {
+      const yfResult = await fetchYahooQuote(yf, yfSymbol, decimals);
+      if (!('error' in yfResult)) return { result: yfResult, source: 'yahoo-fallback' };
+      return {
+        result: { error: `EVDS: ${evdsResult.error}${avKey ? '' : ' · AV KEY YOK'} · YF: ${yfResult.error}` },
+        source: 'none',
+      };
+    }
+
+    return { result: evdsResult, source: 'none' };
   }
 
   const [usdTry, eurTry] = await Promise.all([
-    withYahooFallback(usdTryEvdsRes, 'USDTRY=X', 4),
-    withYahooFallback(eurTryEvdsRes, 'EURTRY=X', 4),
+    withFallbacks(usdTryEvdsRes, 'USD', 'TRY', 'USDTRY=X', 4),
+    withFallbacks(eurTryEvdsRes, 'EUR', 'TRY', 'EURTRY=X', 4),
   ]);
 
   const kpis: MarketKpi[] = [

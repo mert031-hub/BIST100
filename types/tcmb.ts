@@ -7,6 +7,8 @@ export interface TcmbIndicator {
   changePercent?: number;
   date: string;
   category: 'FAIZ' | 'ENFLASYON' | 'KUR' | 'REZERV' | 'DISTICARET' | 'ISTIHDAM' | 'URETIM';
+  isLive?: boolean;
+  errorReason?: string;
 }
 
 export interface TcmbState {

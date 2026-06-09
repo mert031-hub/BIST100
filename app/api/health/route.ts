@@ -8,11 +8,13 @@ export const revalidate = 0;
  * Returns JSON with connectivity status for each source.
  */
 const PROBES = [
-  { key: 'yahoo',   url: 'https://query1.finance.yahoo.com/v1/test/getcrumb', timeout: 4000 },
-  { key: 'bbc_rss', url: 'https://feeds.bbci.co.uk/turkish/rss.xml',          timeout: 4000 },
-  { key: 'ntv_rss', url: 'https://www.ntv.com.tr/ekonomi.rss',                timeout: 4000 },
-  { key: 'kap_rss', url: 'https://www.kap.org.tr/tr/rss/bildirimler',         timeout: 4000 },
-  { key: 'evds',    url: 'https://evds2.tcmb.gov.tr',                          timeout: 4000 },
+  { key: 'yahoo',         url: 'https://query1.finance.yahoo.com/v1/test/getcrumb', timeout: 4000 },
+  { key: 'bbc_rss',       url: 'https://feeds.bbci.co.uk/turkish/rss.xml',          timeout: 4000 },
+  { key: 'ntv_rss',       url: 'https://www.ntv.com.tr/ekonomi.rss',                timeout: 4000 },
+  { key: 'kap_rss',       url: 'https://www.kap.org.tr/tr/rss/bildirimler',         timeout: 4000 },
+  { key: 'evds',          url: 'https://evds2.tcmb.gov.tr',                          timeout: 4000 },
+  { key: 'alpha_vantage', url: 'https://www.alphavantage.co',                        timeout: 4000 },
+  { key: 'fred',          url: 'https://api.stlouisfed.org',                         timeout: 4000 },
 ] as const;
 
 async function probe(url: string, timeout: number): Promise<'reachable' | 'blocked' | 'error'> {

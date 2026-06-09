@@ -3,13 +3,14 @@
 import { useState, useCallback } from 'react';
 
 const ENDPOINTS = [
-  { key: 'health',  path: '/api/health',  label: 'HEALTH'  },
-  { key: 'market',  path: '/api/market',  label: 'MARKET'  },
-  { key: 'stocks',  path: '/api/stocks',  label: 'STOCKS'  },
-  { key: 'news',    path: '/api/news',    label: 'NEWS'     },
-  { key: 'kap',     path: '/api/kap',     label: 'KAP'     },
-  { key: 'brokers', path: '/api/brokers', label: 'BROKERS' },
-  { key: 'tcmb',    path: '/api/tcmb',    label: 'TCMB'    },
+  { key: 'sources', path: '/api/debug/sources', label: 'API SOURCES' },
+  { key: 'health',  path: '/api/health',        label: 'HEALTH'      },
+  { key: 'market',  path: '/api/market',        label: 'MARKET'      },
+  { key: 'stocks',  path: '/api/stocks',        label: 'STOCKS'      },
+  { key: 'news',    path: '/api/news',           label: 'NEWS'        },
+  { key: 'kap',     path: '/api/kap',            label: 'KAP'         },
+  { key: 'brokers', path: '/api/brokers',        label: 'BROKERS'     },
+  { key: 'tcmb',    path: '/api/tcmb',           label: 'TCMB'        },
 ] as const;
 
 type EndpointKey = (typeof ENDPOINTS)[number]['key'];
@@ -18,7 +19,7 @@ type Status = 'idle' | 'loading' | 'ok' | 'error';
 
 interface EndpointState {
   status: Status;
-  source: string | null;    // live / mock / partial / etc.
+  source: string | null;
   responseMs: number | null;
   error: string | null;
   json: unknown;
@@ -40,13 +41,13 @@ const INIT: EndpointState = {
 
 export default function DebugPage() {
   const [states, setStates] = useState<Record<EndpointKey, EndpointState>>({
-    health: { ...INIT }, market: { ...INIT }, stocks: { ...INIT }, news: { ...INIT },
-    kap:    { ...INIT }, brokers: { ...INIT }, tcmb: { ...INIT },
+    sources: { ...INIT }, health: { ...INIT }, market: { ...INIT }, stocks: { ...INIT },
+    news:    { ...INIT }, kap:    { ...INIT }, brokers: { ...INIT }, tcmb: { ...INIT },
   });
 
   const [expanded, setExpanded] = useState<Record<EndpointKey, boolean>>({
-    health: true, market: false, stocks: false, news: false,
-    kap: false, brokers: false, tcmb: false,
+    sources: true, health: false, market: false, stocks: false,
+    news: false, kap: false, brokers: false, tcmb: false,
   });
 
   const [allLoading, setAllLoading] = useState(false);
@@ -355,15 +356,51 @@ function EndpointInsight({ endpointKey, data }: { endpointKey: EndpointKey; data
     src === 'live' || src.startsWith('live') ? '#4aac44' :
     src === 'partial' ? '#c8a84b' : '#7a6428';
 
+  if (endpointKey === 'sources') {
+    const sources = (d.sources as Array<Record<string, unknown>>) ?? [];
+    const statusIcon = (s: string) =>
+      s === 'ok'     ? '● OK'    :
+      s === 'no-key' ? '○ KEY YOK' :
+      s === 'error'  ? '✕ HATA' : '? —';
+    const statusColor = (s: string) =>
+      s === 'ok'     ? '#4aac44' :
+      s === 'no-key' ? '#c8a84b' :
+      s === 'error'  ? '#b84444' : '#5a5040';
+    return (
+      <div style={{ margin: '0 12px 8px', padding: '8px 10px', background: 'rgba(0,0,0,0.2)', border: '1px solid #1a1a18' }}>
+        <div style={{ fontSize: 8, color: '#c8a84b', letterSpacing: 1, marginBottom: 6 }}>API KAYNAK DURUMU</div>
+        {sources.map((s) => {
+          const ts = String(s.testStatus ?? 'error');
+          const ms = s.responseMs != null ? `  ${s.responseMs}ms` : '';
+          const err = s.errorMessage ? `  ← ${s.errorMessage}` : '';
+          const keyLine = s.hasApiKey === false ? '  [key yok]' : s.hasApiKey ? '  [key ✓]' : '';
+          return (
+            <div key={String(s.key)} style={{ marginBottom: 6 }}>
+              {row(String(s.label), `${statusIcon(ts)}${keyLine}${ms}${err}`, statusColor(ts))}
+              {s.sampleData != null && (
+                <div style={{ marginLeft: 120, fontSize: 8, color: '#4a7a44', fontStyle: 'normal', lineHeight: 1.4 }}>
+                  {JSON.stringify(s.sampleData as Record<string, unknown>)}
+                </div>
+              )}
+            </div>
+          );
+        })}
+        {row('Kontrol zamanı', String(d.checkedAt ?? '—'))}
+      </div>
+    );
+  }
+
   if (endpointKey === 'market') {
     const kpis = (d.kpis as Array<Record<string, unknown>>) ?? [];
     const srcLabel = (ds: string) =>
-      ds === 'evds'           ? '● EVDS'          :
+      ds === 'evds'           ? '● EVDS'           :
+      ds === 'alpha-vantage'  ? '● AV'             :
       ds === 'yahoo'          ? '● YF'             :
       ds === 'yahoo-fallback' ? '⚠ YF(fallback)'  :
       ds === 'none'           ? '○ kaynak yok'     : ds;
     const srcColor = (ds: string) =>
       ds === 'evds'           ? '#4aac44' :
+      ds === 'alpha-vantage'  ? '#4aac44' :
       ds === 'yahoo'          ? '#4aac44' :
       ds === 'yahoo-fallback' ? '#c8a84b' : '#b84444';
     return (
@@ -442,11 +479,17 @@ function EndpointInsight({ endpointKey, data }: { endpointKey: EndpointKey; data
       <div style={{ margin: '0 12px 8px', padding: '8px 10px', background: 'rgba(0,0,0,0.2)', border: '1px solid #1a1a18' }}>
         <div style={{ fontSize: 8, color: '#c8a84b', letterSpacing: 1, marginBottom: 6 }}>EVDS GÖSTERGE DURUMU</div>
         {row('Source', String(d.source ?? '—'), sourceColor(String(d.source ?? '')))}
-        {row('Live / Total', `${d.liveCount ?? 0} / ${inds.length}`)}
-        {inds.map((ind) => row(
-          String(ind.label ?? ind.key ?? ''),
-          `${ind.value} ${ind.unit}  (${ind.date})`,
-        ))}
+        {typeof d.errorReason === 'string' && d.errorReason && row('Hata', d.errorReason, '#b84444')}
+        {row('Canlı / Toplam', `${d.liveCount ?? 0} / ${inds.length}`)}
+        {inds.map((ind) => {
+          const live = Boolean(ind.isLive);
+          const err  = ind.errorReason ? `  ← ${ind.errorReason}` : '';
+          return row(
+            String(ind.label ?? ind.key ?? ''),
+            `${live ? '● ' : '○ '}${ind.value} ${ind.unit}  (${ind.date})${err}`,
+            live ? '#4aac44' : '#b84444',
+          );
+        })}
       </div>
     );
   }
