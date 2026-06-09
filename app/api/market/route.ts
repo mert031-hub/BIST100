@@ -214,12 +214,12 @@ export async function GET() {
     fetchFaizEvds(evdsKey),
   ]);
 
-  // EVDS → Alpha Vantage → Yahoo Finance → error (no mock)
+  // EVDS → Alpha Vantage → Veri Yok
+  // Yahoo Finance döviz çiftleri için güvenilir değil — fallback olarak kullanılmıyor
   async function withFallbacks(
     evdsResult: QuoteResult,
     avFrom: string,
     avTo: string,
-    yfSymbol: string,
     decimals: number,
   ): Promise<{ result: QuoteResult; source: MarketKpi['dataSource'] }> {
     if (!('error' in evdsResult)) return { result: evdsResult, source: 'evds' };
@@ -228,24 +228,22 @@ export async function GET() {
     if (avKey) {
       const avResult = await fetchCurrencyAlphaVantage(avFrom, avTo, avKey, decimals);
       if (!('error' in avResult)) return { result: avResult, source: 'alpha-vantage' };
-    }
-
-    // Yahoo Finance fallback
-    if (yf) {
-      const yfResult = await fetchYahooQuote(yf, yfSymbol, decimals);
-      if (!('error' in yfResult)) return { result: yfResult, source: 'yahoo-fallback' };
+      // Both EVDS and AV failed
       return {
-        result: { error: `EVDS: ${evdsResult.error}${avKey ? '' : ' · AV KEY YOK'} · YF: ${yfResult.error}` },
+        result: { error: `EVDS: ${evdsResult.error} · AV: ${avResult.error}` },
         source: 'none',
       };
     }
 
-    return { result: evdsResult, source: 'none' };
+    // No Yahoo fallback for currencies — unreliable data
+    const parts: string[] = [`EVDS: ${evdsResult.error}`];
+    if (!avKey) parts.push('AV KEY YOK');
+    return { result: { error: parts.join(' · ') }, source: 'none' };
   }
 
   const [usdTry, eurTry] = await Promise.all([
-    withFallbacks(usdTryEvdsRes, 'USD', 'TRY', 'USDTRY=X', 4),
-    withFallbacks(eurTryEvdsRes, 'EUR', 'TRY', 'EURTRY=X', 4),
+    withFallbacks(usdTryEvdsRes, 'USD', 'TRY', 4),
+    withFallbacks(eurTryEvdsRes, 'EUR', 'TRY', 4),
   ]);
 
   const kpis: MarketKpi[] = [

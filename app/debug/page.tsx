@@ -357,35 +357,64 @@ function EndpointInsight({ endpointKey, data }: { endpointKey: EndpointKey; data
     src === 'partial' ? '#c8a84b' : '#7a6428';
 
   if (endpointKey === 'sources') {
-    const sources = (d.sources as Array<Record<string, unknown>>) ?? [];
-    const statusIcon = (s: string) =>
-      s === 'ok'     ? '● OK'    :
-      s === 'no-key' ? '○ KEY YOK' :
-      s === 'error'  ? '✕ HATA' : '? —';
-    const statusColor = (s: string) =>
-      s === 'ok'     ? '#4aac44' :
-      s === 'no-key' ? '#c8a84b' :
-      s === 'error'  ? '#b84444' : '#5a5040';
+    const sources     = (d.sources     as Array<Record<string, unknown>>) ?? [];
+    const keyStatuses = (d.keyStatuses as Array<Record<string, unknown>>) ?? [];
+    const evdsSeries  = (d.evdsSeries  as Array<Record<string, unknown>>) ?? [];
+
+    const tsIcon  = (s: string) => s === 'ok' ? '● OK' : s === 'no-key' ? '○ KEY YOK' : '✕ HATA';
+    const tsColor = (s: string) => s === 'ok' ? '#4aac44' : s === 'no-key' ? '#c8a84b' : '#b84444';
+
     return (
-      <div style={{ margin: '0 12px 8px', padding: '8px 10px', background: 'rgba(0,0,0,0.2)', border: '1px solid #1a1a18' }}>
-        <div style={{ fontSize: 8, color: '#c8a84b', letterSpacing: 1, marginBottom: 6 }}>API KAYNAK DURUMU</div>
-        {sources.map((s) => {
-          const ts = String(s.testStatus ?? 'error');
-          const ms = s.responseMs != null ? `  ${s.responseMs}ms` : '';
-          const err = s.errorMessage ? `  ← ${s.errorMessage}` : '';
-          const keyLine = s.hasApiKey === false ? '  [key yok]' : s.hasApiKey ? '  [key ✓]' : '';
-          return (
-            <div key={String(s.key)} style={{ marginBottom: 6 }}>
-              {row(String(s.label), `${statusIcon(ts)}${keyLine}${ms}${err}`, statusColor(ts))}
-              {s.sampleData != null && (
-                <div style={{ marginLeft: 120, fontSize: 8, color: '#4a7a44', fontStyle: 'normal', lineHeight: 1.4 }}>
-                  {JSON.stringify(s.sampleData as Record<string, unknown>)}
-                </div>
-              )}
-            </div>
-          );
-        })}
-        {row('Kontrol zamanı', String(d.checkedAt ?? '—'))}
+      <div style={{ margin: '0 12px 8px' }}>
+        {/* API Key Status */}
+        <div style={{ padding: '8px 10px', background: 'rgba(0,0,0,0.2)', border: '1px solid #1a1a18', marginBottom: 6 }}>
+          <div style={{ fontSize: 8, color: '#c8a84b', letterSpacing: 1, marginBottom: 6 }}>API KEY DURUMU</div>
+          {keyStatuses.map((k) => {
+            const exists = Boolean(k.exists);
+            const len    = k.length != null ? `  (${k.length} karakter)` : '';
+            return row(
+              String(k.name),
+              exists ? `✓ TANIMLI${len}` : '✗ TANIMSIZ',
+              exists ? '#4aac44' : '#b84444',
+            );
+          })}
+        </div>
+
+        {/* EVDS Series Validation */}
+        <div style={{ padding: '8px 10px', background: 'rgba(0,0,0,0.2)', border: '1px solid #1a1a18', marginBottom: 6 }}>
+          <div style={{ fontSize: 8, color: '#c8a84b', letterSpacing: 1, marginBottom: 6 }}>EVDS SERİ DOĞRULAMA</div>
+          {evdsSeries.map((s) => {
+            const ok  = Boolean(s.success);
+            const val = ok ? `${s.lastValue}  (${s.lastDate ?? '?'})` : String(s.errorMessage ?? 'hata');
+            return (
+              <div key={String(s.seriesCode)} style={{ marginBottom: 3 }}>
+                {row(String(s.label), `${ok ? '●' : '○'} ${val}`, ok ? '#4aac44' : '#b84444')}
+                <div style={{ marginLeft: 120, fontSize: 8, color: '#5a5040' }}>{String(s.seriesCode ?? '')}</div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Source Connectivity */}
+        <div style={{ padding: '8px 10px', background: 'rgba(0,0,0,0.2)', border: '1px solid #1a1a18' }}>
+          <div style={{ fontSize: 8, color: '#c8a84b', letterSpacing: 1, marginBottom: 6 }}>KAYNAK BAĞLANTI TESTİ</div>
+          {sources.map((s) => {
+            const ts  = String(s.testStatus ?? 'error');
+            const ms  = s.responseMs != null ? `  ${s.responseMs}ms` : '';
+            const err = s.errorMessage ? `  ← ${s.errorMessage}` : '';
+            return (
+              <div key={String(s.key)} style={{ marginBottom: 6 }}>
+                {row(String(s.label), `${tsIcon(ts)}${ms}${err}`, tsColor(ts))}
+                {s.sampleData != null && (
+                  <div style={{ marginLeft: 120, fontSize: 8, color: '#4a7a44', lineHeight: 1.4 }}>
+                    {JSON.stringify(s.sampleData as Record<string, unknown>)}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {row('Kontrol zamanı', String(d.checkedAt ?? '—'))}
+        </div>
       </div>
     );
   }
