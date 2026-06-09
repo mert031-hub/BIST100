@@ -50,10 +50,17 @@ async function fetchEvdsAll(evdsKey: string): Promise<Partial<Record<string, num
 
   const res = await fetch(url, {
     signal: AbortSignal.timeout(10_000),
-    headers: { key: evdsKey },
+    headers: { key: evdsKey.trim() },
   });
 
   if (!res.ok) throw new Error(`EVDS HTTP ${res.status}`);
+
+  // EVDS returns HTML when key is invalid/expired (redirects to login)
+  const ct = res.headers.get('content-type') ?? '';
+  if (ct.includes('text/html')) {
+    const preview = (await res.text()).slice(0, 120).replace(/\s+/g, ' ');
+    throw new Error(`EVDS HTML yanıtı (key geçersiz/süresi dolmuş?): ${preview}`);
+  }
 
   const data = await res.json();
   const items: Record<string, string>[] = data?.items ?? [];

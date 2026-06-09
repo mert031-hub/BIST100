@@ -49,9 +49,15 @@ async function evdsSeries(series: string, apiKey: string, days = 10): Promise<Re
     `&startDate=${EVDS_FMT(start)}&endDate=${EVDS_FMT(today)}`;
   const res = await fetch(url, {
     signal: AbortSignal.timeout(7000),
-    headers: { key: apiKey },
+    headers: { key: apiKey.trim() },
   });
   if (!res.ok) throw new Error(`EVDS HTTP ${res.status}`);
+  // EVDS returns HTML when key is invalid/expired (redirects to login page)
+  const ct = res.headers.get('content-type') ?? '';
+  if (ct.includes('text/html')) {
+    const preview = (await res.text()).slice(0, 120).replace(/\s+/g, ' ');
+    throw new Error(`EVDS HTML yanıtı (key geçersiz/süresi dolmuş?): ${preview}`);
+  }
   const data = await res.json();
   return (data?.items ?? []) as Record<string, string>[];
 }
@@ -127,8 +133,12 @@ async function fetchCurrencyAlphaVantage(
     if (!res.ok) throw new Error(`AV HTTP ${res.status}`);
     const data = await res.json();
 
-    if (data?.Note)        return { error: 'AV LİMİT AŞILDI' };
-    if (data?.Information) return { error: 'AV API KEY GEÇERSİZ' };
+    if (data?.Note) return { error: 'AV LİMİT: ' + String(data.Note).slice(0, 80) };
+    if (data?.Information) {
+      const info = String(data.Information);
+      // Information can mean rate-limit OR invalid key — show actual message
+      return { error: 'AV: ' + info.slice(0, 100) };
+    }
 
     const rate = data?.['Realtime Currency Exchange Rate'];
     if (!rate) return { error: 'AV VERİ BOŞ' };

@@ -70,6 +70,12 @@ export interface StrategyResult {
   success: boolean;
   itemCount: number;
   error?: string;
+  /** Denenen URL — debug için */
+  requestUrl?: string;
+  /** HTTP status kodu */
+  httpStatus?: number;
+  /** Response'un ilk 200 karakteri — debug için */
+  responsePreview?: string;
   durationMs: number;
 }
 
@@ -129,70 +135,108 @@ function extractCode(title: string, creator?: string): string {
 
 /* ─── Strateji 1: RSS Feed ───────────────────────────────────────────────── */
 
+// Candidates in priority order — first that returns valid RSS wins
+const KAP_RSS_CANDIDATES = [
+  `${BASE_URL}/tr/rss/bildirimler`,
+  `${BASE_URL}/en/rss/disclosures`,
+  `${BASE_URL}/tr/rss/bildirim`,
+] as const;
+
+function parseRssItems(feedItems: unknown[], baseUrl: string): KapDisclosure[] {
+  return (feedItems as Array<Record<string, unknown>>)
+    .slice(0, MAX_ITEMS)
+    .map((item, idx): KapDisclosure => {
+      const title = String(item['title'] ?? '').trim() || 'Başlık yok';
+      const creator = String(item['dc:creator'] ?? item['creator'] ?? '');
+      const category = classifyKap(title);
+      const companyCode = extractCode(title, creator || undefined);
+      const score = scoreKap(title, category);
+      const pubDate = item['pubDate'] ? new Date(String(item['pubDate'])).toISOString() : new Date().toISOString();
+      return {
+        id: `kap-rss-${idx}-${Date.now()}`,
+        companyCode,
+        companyName: creator || companyCode,
+        title,
+        summary: String(item['contentSnippet'] ?? item['summary'] ?? ''),
+        category,
+        date: pubDate,
+        sourceUrl: String(item['link'] ?? `${baseUrl}/tr/bildirim-sorgu`),
+        importanceScore: score,
+        contentReady: score >= 55 && CONTENT_READY_CATS.has(category),
+      };
+    })
+    .filter((d) => d.title.length > 5);
+}
+
 async function tryRssFeed(): Promise<{ items: KapDisclosure[]; result: StrategyResult }> {
   const t0 = Date.now();
-  const strategy = 'RSS /tr/rss/bildirimler';
 
-  try {
-    const Parser = (await import('rss-parser')).default;
-    const parser = new Parser({
-      timeout: TIMEOUT_MS,
-      headers: {
-        // 'kap/0.1.1' is the User-Agent known to work with KAP's RSS feed
-        // (generic User-Agent strings are blocked; source: kap_reader.py)
-        'User-Agent': 'kap/0.1.1',
-        Accept: 'application/rss+xml, application/xml, text/xml',
-        Referer: `${BASE_URL}/`,
-      },
-      customFields: { item: ['summary', 'description', 'dc:creator'] },
-    });
+  const Parser = (await import('rss-parser')).default;
+  const parser = new Parser({
+    timeout: TIMEOUT_MS,
+    headers: {
+      // 'kap/0.1.1' is the User-Agent known to work with KAP's RSS feed
+      'User-Agent': 'kap/0.1.1',
+      Accept: 'application/rss+xml, application/xml, text/xml',
+      Referer: `${BASE_URL}/`,
+    },
+    customFields: { item: ['summary', 'description', 'dc:creator'] },
+  });
 
-    const feed = await withTimeout(
-      parser.parseURL(`${BASE_URL}/tr/rss/bildirimler`),
-      TIMEOUT_MS
-    );
+  const errors: string[] = [];
 
-    const items: KapDisclosure[] = (feed.items ?? [])
-      .slice(0, MAX_ITEMS)
-      .map((item, idx): KapDisclosure => {
-        const title = item.title?.trim() ?? 'Başlık yok';
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const creator = (item as any)['dc:creator'] ?? item.creator;
-        const category = classifyKap(title);
-        const companyCode = extractCode(title, creator);
-        const score = scoreKap(title, category);
+  for (const rssUrl of KAP_RSS_CANDIDATES) {
+    const strategy = `RSS ${rssUrl.replace(BASE_URL, '')}`;
+    try {
+      // First do a HEAD probe to check status and avoid parsing errors
+      const probe = await fetch(rssUrl, {
+        method: 'HEAD',
+        signal: AbortSignal.timeout(5000),
+        headers: { 'User-Agent': 'kap/0.1.1' },
+      });
 
-        return {
-          id: `kap-rss-${idx}-${Date.now()}`,
-          companyCode,
-          companyName: creator ?? companyCode,
-          title,
-          summary: item.contentSnippet ?? item.summary ?? '',
-          category,
-          date: item.pubDate ? new Date(item.pubDate).toISOString() : new Date().toISOString(),
-          sourceUrl: item.link ?? `${BASE_URL}/tr/bildirim-sorgu`,
-          importanceScore: score,
-          contentReady: score >= 55 && CONTENT_READY_CATS.has(category),
-        };
-      })
-      .filter((d) => d.title.length > 5);
+      if (!probe.ok) {
+        errors.push(`${rssUrl.replace(BASE_URL, '')} → HTTP ${probe.status}`);
+        continue;
+      }
 
-    if (items.length === 0) throw new Error('RSS feed returned 0 items');
+      const feed = await withTimeout(parser.parseURL(rssUrl), TIMEOUT_MS);
+      const items = parseRssItems(feed.items ?? [], BASE_URL);
 
-    return {
-      items,
-      result: { strategy, success: true, itemCount: items.length, durationMs: Date.now() - t0 },
-    };
-  } catch (err) {
-    return {
-      items: [],
-      result: {
-        strategy, success: false, itemCount: 0,
-        error: err instanceof Error ? err.message : String(err),
-        durationMs: Date.now() - t0,
-      },
-    };
+      if (items.length === 0) {
+        errors.push(`${rssUrl.replace(BASE_URL, '')} → 0 item`);
+        continue;
+      }
+
+      return {
+        items,
+        result: {
+          strategy,
+          success: true,
+          itemCount: items.length,
+          requestUrl: rssUrl,
+          httpStatus: probe.status,
+          durationMs: Date.now() - t0,
+        },
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      errors.push(`${rssUrl.replace(BASE_URL, '')} → ${msg.slice(0, 80)}`);
+    }
   }
+
+  // All candidates failed
+  return {
+    items: [],
+    result: {
+      strategy: 'RSS (tüm adaylar başarısız)',
+      success: false,
+      itemCount: 0,
+      error: errors.join(' | '),
+      requestUrl: KAP_RSS_CANDIDATES[0],
+      durationMs: Date.now() - t0,
+    },
+  };
 }
 
 /* ─── Strateji 2: JSON API (/tr/api/disclosures) ─────────────────────────── */

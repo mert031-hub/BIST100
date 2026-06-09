@@ -399,15 +399,37 @@ function EndpointInsight({ endpointKey, data }: { endpointKey: EndpointKey; data
         <div style={{ padding: '8px 10px', background: 'rgba(0,0,0,0.2)', border: '1px solid #1a1a18' }}>
           <div style={{ fontSize: 8, color: '#c8a84b', letterSpacing: 1, marginBottom: 6 }}>KAYNAK BAĞLANTI TESTİ</div>
           {sources.map((s) => {
-            const ts  = String(s.testStatus ?? 'error');
-            const ms  = s.responseMs != null ? `  ${s.responseMs}ms` : '';
-            const err = s.errorMessage ? `  ← ${s.errorMessage}` : '';
+            const ts    = String(s.testStatus ?? 'error');
+            const ms    = s.responseMs != null ? `  ${s.responseMs}ms` : '';
+            const http  = s.httpStatus != null ? `  HTTP ${s.httpStatus}` : '';
+            const err   = s.errorMessage ? `  ← ${s.errorMessage}` : '';
+            const lastOk  = s.lastSuccessAt ? `son başarı: ${String(s.lastSuccessAt).slice(11, 19)}` : null;
+            const lastErr = s.lastErrorAt   ? `son hata: ${String(s.lastErrorAt).slice(11, 19)}`    : null;
             return (
-              <div key={String(s.key)} style={{ marginBottom: 6 }}>
-                {row(String(s.label), `${tsIcon(ts)}${ms}${err}`, tsColor(ts))}
+              <div key={String(s.key)} style={{ marginBottom: 8 }}>
+                {row(String(s.label), `${tsIcon(ts)}${http}${ms}${err}`, tsColor(ts))}
+                {/* Request URL */}
+                {s.requestUrl != null && typeof s.requestUrl === 'string' && (
+                  <div style={{ marginLeft: 120, fontSize: 8, color: '#4a4430', lineHeight: 1.4, wordBreak: 'break-all', marginTop: 1 }}>
+                    {s.requestUrl}
+                  </div>
+                )}
+                {/* Response preview */}
+                {s.responsePreview != null && typeof s.responsePreview === 'string' && (
+                  <div style={{ marginLeft: 120, fontSize: 8, color: ts === 'ok' ? '#4a7a44' : '#7a3030', lineHeight: 1.4, marginTop: 1, fontStyle: 'italic' }}>
+                    {s.responsePreview.slice(0, 200)}
+                  </div>
+                )}
+                {/* Sample data */}
                 {s.sampleData != null && (
-                  <div style={{ marginLeft: 120, fontSize: 8, color: '#4a7a44', lineHeight: 1.4 }}>
+                  <div style={{ marginLeft: 120, fontSize: 8, color: '#4a7a44', lineHeight: 1.4, marginTop: 1 }}>
                     {JSON.stringify(s.sampleData as Record<string, unknown>)}
+                  </div>
+                )}
+                {/* Timestamps */}
+                {(lastOk || lastErr) && (
+                  <div style={{ marginLeft: 120, fontSize: 7, color: '#3a3428', marginTop: 1 }}>
+                    {[lastOk, lastErr].filter(Boolean).join('  ·  ')}
                   </div>
                 )}
               </div>
