@@ -446,25 +446,45 @@ function EndpointInsight({ endpointKey, data }: { endpointKey: EndpointKey; data
     const srcLabel = (ds: string) =>
       ds === 'evds'           ? '● EVDS'           :
       ds === 'alpha-vantage'  ? '● AV'             :
+      ds === 'fred'           ? '● FRED'           :
       ds === 'yahoo'          ? '● YF'             :
       ds === 'yahoo-fallback' ? '⚠ YF(fallback)'  :
       ds === 'none'           ? '○ kaynak yok'     : ds;
     const srcColor = (ds: string) =>
       ds === 'evds'           ? '#4aac44' :
       ds === 'alpha-vantage'  ? '#4aac44' :
+      ds === 'fred'           ? '#4aac44' :
       ds === 'yahoo'          ? '#4aac44' :
       ds === 'yahoo-fallback' ? '#c8a84b' : '#b84444';
+    const srcChain: Record<string, string> = {
+      bist100: 'Yahoo → Veri Yok',
+      usd_try: 'EVDS → AV → Veri Yok',
+      eur_try: 'EVDS → AV → Veri Yok',
+      brent:   'FRED → Yahoo → Veri Yok',
+      faiz:    'EVDS → Veri Yok',
+    };
     return (
       <div style={{ margin: '0 12px 8px', padding: '8px 10px', background: 'rgba(0,0,0,0.2)', border: '1px solid #1a1a18' }}>
         <div style={{ fontSize: 8, color: '#c8a84b', letterSpacing: 1, marginBottom: 6 }}>MARKET KPI DURUMU</div>
         {kpis.map((k) => {
           const ds      = String(k.dataSource ?? 'none');
           const live    = Boolean(k.isLive);
+          const key     = String(k.key ?? '');
           const errLine = k.errorReason ? `  ← ${k.errorReason}` : '';
-          return row(
-            String(k.label),
-            `${k.value}  ${k.changeStr || ''}  ${srcLabel(ds)}${errLine}`,
-            live ? srcColor(ds) : '#b84444',
+          const chain   = srcChain[key];
+          return (
+            <div key={key} style={{ marginBottom: 3 }}>
+              {row(
+                String(k.label),
+                `${k.value}  ${k.changeStr || ''}  ${srcLabel(ds)}${errLine}`,
+                live ? srcColor(ds) : '#b84444',
+              )}
+              {chain && (
+                <div style={{ marginLeft: 120, fontSize: 7, color: '#3a3428', marginTop: 0 }}>
+                  {chain}
+                </div>
+              )}
+            </div>
           );
         })}
         <div style={{ borderTop: '1px solid #252520', marginTop: 4, paddingTop: 4 }}>

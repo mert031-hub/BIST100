@@ -334,7 +334,8 @@ async function checkFred(apiKey: string): Promise<SourceStatus> {
   }
 
   const trimmedKey = apiKey.trim();
-  const url = `https://api.stlouisfed.org/fred/series/observations?series_id=DFF&api_key=${trimmedKey}&file_type=json&limit=1&sort_order=desc`;
+  // Test with DCOILBRENTEU — the series actually used in production (Brent crude, USD/barrel)
+  const url = `https://api.stlouisfed.org/fred/series/observations?series_id=DCOILBRENTEU&api_key=${trimmedKey}&file_type=json&limit=3&sort_order=desc`;
   const displayUrl = maskKey(url, trimmedKey);
   const t0 = Date.now();
 
@@ -342,15 +343,18 @@ async function checkFred(apiKey: string): Promise<SourceStatus> {
     const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
     const responseMs = Date.now() - t0;
     const httpStatus = res.status;
-    const preview = await safeText(res);
 
     if (!res.ok) {
+      const preview = await safeText(res);
       markError(tKey);
       return { ...base, testStatus: 'error', requestUrl: displayUrl, httpStatus, responsePreview: preview, sampleData: null, errorMessage: `HTTP ${httpStatus}`, responseMs, ...getTracker(tKey) };
     }
 
+    const text = await res.text();
+    const preview = text.slice(0, 300).replace(/\s+/g, ' ').trim();
+
     let data: Record<string, unknown>;
-    try { data = JSON.parse(preview.length < 300 ? preview : (await res.text())); } catch {
+    try { data = JSON.parse(text); } catch {
       markError(tKey);
       return { ...base, testStatus: 'error', requestUrl: displayUrl, httpStatus, responsePreview: preview, sampleData: null, errorMessage: 'JSON parse hatası', responseMs, ...getTracker(tKey) };
     }
@@ -360,16 +364,17 @@ async function checkFred(apiKey: string): Promise<SourceStatus> {
       return { ...base, testStatus: 'error', requestUrl: displayUrl, httpStatus, responsePreview: preview, sampleData: null, errorMessage: String(data.error_message), responseMs, ...getTracker(tKey) };
     }
 
-    const obs = (data?.observations as Array<Record<string, string>>)?.[0] ?? null;
-    if (!obs) {
+    const obs = (data?.observations as Array<Record<string, string>> | undefined) ?? [];
+    const valid = obs.filter((o) => o.value && o.value !== '.');
+    if (valid.length === 0) {
       markError(tKey);
-      return { ...base, testStatus: 'error', requestUrl: displayUrl, httpStatus, responsePreview: preview, sampleData: null, errorMessage: 'Gözlem verisi bulunamadı', responseMs, ...getTracker(tKey) };
+      return { ...base, testStatus: 'error', requestUrl: displayUrl, httpStatus, responsePreview: preview, sampleData: null, errorMessage: 'Gözlem verisi bulunamadı (tümü "." boş)', responseMs, ...getTracker(tKey) };
     }
 
     markSuccess(tKey);
     return {
       ...base, testStatus: 'ok', requestUrl: displayUrl, httpStatus, responsePreview: preview,
-      sampleData: { seriesId: 'DFF', label: 'Federal Funds Rate', date: obs.date, value: obs.value + '%' },
+      sampleData: { seriesId: 'DCOILBRENTEU', label: 'Brent Crude (USD/barrel)', date: valid[0].date, value: valid[0].value },
       errorMessage: null, responseMs, ...getTracker(tKey),
     };
   } catch (e) {

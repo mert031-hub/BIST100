@@ -17,7 +17,7 @@ export interface MarketKpi {
   /** Shown inline in TopBar when isLive=false */
   errorReason?: string;
   /** Actual data source used — for debug */
-  dataSource?: 'evds' | 'alpha-vantage' | 'yahoo' | 'yahoo-fallback' | 'none';
+  dataSource?: 'evds' | 'alpha-vantage' | 'fred' | 'yahoo' | 'yahoo-fallback' | 'none';
 }
 
 interface MarketResponse {
@@ -159,6 +159,42 @@ async function fetchCurrencyAlphaVantage(
   }
 }
 
+// ─── FRED (St. Louis Fed) ──────────────────────────────────────────────────────
+
+async function fetchBrentFred(apiKey: string): Promise<QuoteResult> {
+  if (!apiKey) return { error: 'FRED API KEY YOK' };
+  try {
+    const url =
+      `https://api.stlouisfed.org/fred/series/observations` +
+      `?series_id=DCOILBRENTEU&api_key=${apiKey.trim()}&file_type=json&limit=3&sort_order=desc`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(7000) });
+    if (!res.ok) throw new Error(`FRED HTTP ${res.status}`);
+    const data = await res.json();
+    if (data?.error_message) return { error: `FRED: ${String(data.error_message).slice(0, 80)}` };
+
+    const obs: Array<{ date: string; value: string }> = data?.observations ?? [];
+    // FRED uses "." for missing observations — filter them out
+    const valid = obs.filter((o) => o.value && o.value !== '.');
+    if (valid.length === 0) return { error: 'FRED VERİ BOŞ' };
+
+    const current  = parseFloat(valid[0].value);
+    const previous = valid.length > 1 ? parseFloat(valid[1].value) : current;
+    if (isNaN(current)) return { error: 'FRED VERİ GEÇERSİZ' };
+
+    const changePct = previous !== 0 ? ((current - previous) / previous) * 100 : 0;
+    return {
+      value:     current.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      changeStr: (changePct >= 0 ? '▲ ' : '▼ ') + Math.abs(changePct).toFixed(2) + '%',
+      up:        changePct >= 0,
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : '';
+    if (msg.includes('FRED HTTP')) return { error: msg };
+    if (msg.includes('timeout') || msg.includes('abort')) return { error: 'FRED ZAMAN AŞIMI' };
+    return { error: 'FRED ERİŞİM HATASI' };
+  }
+}
+
 // ─── Yahoo Finance ─────────────────────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -204,6 +240,7 @@ export async function GET() {
 
   const evdsKey = process.env.EVDS_API_KEY ?? '';
   const avKey   = process.env.ALPHA_VANTAGE_API_KEY ?? '';
+  const fredKey = process.env.FRED_API_KEY ?? '';
 
   let yf: unknown = null;
   try {
@@ -216,51 +253,48 @@ export async function GET() {
 
   const noYahoo: QuoteResult = { error: 'YAHOO MODÜL HATASI' };
 
-  const [bist100Res, usdTryEvdsRes, eurTryEvdsRes, brentRes, faizRes] = await Promise.all([
+  // Fetch all sources concurrently
+  const [bist100Res, usdTryEvdsRes, eurTryEvdsRes, brentFredRes, brentYahooRes, faizRes] = await Promise.all([
     yf ? fetchYahooQuote(yf, '^XU100', 0) : Promise.resolve(noYahoo),
     fetchCurrencyEvds('TP.DK.USD.A.YTL', evdsKey, 4),
     fetchCurrencyEvds('TP.DK.EUR.A.YTL', evdsKey, 4),
+    fetchBrentFred(fredKey),
     yf ? fetchYahooQuote(yf, 'BZ=F', 2)  : Promise.resolve(noYahoo),
     fetchFaizEvds(evdsKey),
   ]);
 
-  // EVDS → Alpha Vantage → Veri Yok
-  // Yahoo Finance döviz çiftleri için güvenilir değil — fallback olarak kullanılmıyor
-  async function withFallbacks(
+  // USD/TRY, EUR/TRY: EVDS → Alpha Vantage → Veri Yok (no Yahoo — unreliable for TRY pairs)
+  async function withCurrencyFallbacks(
     evdsResult: QuoteResult,
     avFrom: string,
     avTo: string,
     decimals: number,
   ): Promise<{ result: QuoteResult; source: MarketKpi['dataSource'] }> {
     if (!('error' in evdsResult)) return { result: evdsResult, source: 'evds' };
-
-    // Alpha Vantage fallback
     if (avKey) {
       const avResult = await fetchCurrencyAlphaVantage(avFrom, avTo, avKey, decimals);
       if (!('error' in avResult)) return { result: avResult, source: 'alpha-vantage' };
-      // Both EVDS and AV failed
-      return {
-        result: { error: `EVDS: ${evdsResult.error} · AV: ${avResult.error}` },
-        source: 'none',
-      };
+      return { result: { error: `EVDS: ${evdsResult.error} · AV: ${avResult.error}` }, source: 'none' };
     }
-
-    // No Yahoo fallback for currencies — unreliable data
-    const parts: string[] = [`EVDS: ${evdsResult.error}`];
-    if (!avKey) parts.push('AV KEY YOK');
-    return { result: { error: parts.join(' · ') }, source: 'none' };
+    return { result: { error: `EVDS: ${evdsResult.error} · AV KEY YOK` }, source: 'none' };
   }
 
   const [usdTry, eurTry] = await Promise.all([
-    withFallbacks(usdTryEvdsRes, 'USD', 'TRY', 4),
-    withFallbacks(eurTryEvdsRes, 'EUR', 'TRY', 4),
+    withCurrencyFallbacks(usdTryEvdsRes, 'USD', 'TRY', 4),
+    withCurrencyFallbacks(eurTryEvdsRes, 'EUR', 'TRY', 4),
   ]);
+
+  // Brent: FRED → Yahoo → Veri Yok
+  const brent: { result: QuoteResult; source: MarketKpi['dataSource'] } =
+    !('error' in brentFredRes)  ? { result: brentFredRes,  source: 'fred'  } :
+    !('error' in brentYahooRes) ? { result: brentYahooRes, source: 'yahoo' } :
+    { result: { error: `FRED: ${brentFredRes.error} · YAHOO: ${brentYahooRes.error}` }, source: 'none' };
 
   const kpis: MarketKpi[] = [
     makeKpi('bist100', 'BIST100',   bist100Res,    yf ? 'yahoo' : 'none'),
     makeKpi('usd_try', 'USD/TRY',   usdTry.result, usdTry.source),
     makeKpi('eur_try', 'EUR/TRY',   eurTry.result, eurTry.source),
-    makeKpi('brent',   'Brent',     brentRes,      yf ? 'yahoo' : 'none'),
+    makeKpi('brent',   'Brent',     brent.result,  brent.source),
     makeKpi('faiz',    'TCMB Faiz', faizRes,       evdsKey ? 'evds' : 'none'),
   ];
 
